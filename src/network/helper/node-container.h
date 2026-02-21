@@ -215,6 +215,8 @@ class NodeContainer
      */
     void Create(uint32_t n, uint32_t systemId);
 
+		template<typename T> void Create(uint32_t n);
+
     /**
      * @brief Append the contents of another NodeContainer to the end of
      * this container.
@@ -290,7 +292,19 @@ NodeContainer::Add(const NodeContainer& nc, Ts&&... args)
     Add(nc);
     Add(std::forward<Ts>(args)...);
 }
+// JW
+template <typename T>
+void
+NodeContainer::Create(uint32_t n)
+{
+  static_assert(std::is_base_of<Node, T>::value,
+                "T must derive from ns3::Node");
 
+  for (uint32_t i = 0; i < n; ++i)
+  {
+    m_nodes.push_back(CreateObject<T>());
+  }
+}
 } // namespace ns3
 
 #endif /* NODE_CONTAINER_H */

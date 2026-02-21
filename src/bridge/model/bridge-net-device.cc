@@ -141,7 +141,7 @@ BridgeNetDevice::ForwardUnicast(Ptr<NetDevice> incomingPort,
                  << ", protocol=" << protocol << ", src=" << src << ", dst=" << dst << ")");
 
     Learn(src, incomingPort);
-    Ptr<NetDevice> outPort = GetLearnedState(dst);
+    Ptr<NetDevice> outPort = GetPortFromAddress(dst);
     if (outPort && outPort != incomingPort)
     {
         NS_LOG_LOGIC("Learning bridge state says to use port `"
@@ -149,7 +149,13 @@ BridgeNetDevice::ForwardUnicast(Ptr<NetDevice> incomingPort,
         outPort->SendFrom(packet->Copy(), src, dst, protocol);
     }
     else
-    {
+    { // JW: added drop logic
+				if (!m_enableLearning){
+						NS_LOG_LOGIC("No corresponding table entry: dropping packet");
+						// TODO: potentially add drops tracing
+						return;
+				}
+		// JW: end
         NS_LOG_LOGIC("No learned state: send through all ports");
         for (auto iter = m_ports.begin(); iter != m_ports.end(); iter++)
         {
@@ -193,6 +199,17 @@ BridgeNetDevice::ForwardBroadcast(Ptr<NetDevice> incomingPort,
         }
     }
 }
+// JW: start
+void BridgeNetDevice::DisableExpiration(){
+		m_enableExpiration = false;
+}
+
+void BridgeNetDevice::AddEntry(Mac48Address source, Ptr<NetDevice> port){
+		LearnedState& state = m_learnState[source];
+		state.associatedPort = port;
+		state.expirationTime = Simulator::Now() + m_expirationTime;
+}
+// JW: end
 
 void
 BridgeNetDevice::Learn(Mac48Address source, Ptr<NetDevice> port)
@@ -200,10 +217,36 @@ BridgeNetDevice::Learn(Mac48Address source, Ptr<NetDevice> port)
     NS_LOG_FUNCTION_NOARGS();
     if (m_enableLearning)
     {
+				// JW: start
+				/*
         LearnedState& state = m_learnState[source];
         state.associatedPort = port;
         state.expirationTime = Simulator::Now() + m_expirationTime;
+				*/
+				AddEntry(source, port);
+				// JW: end
     }
+}
+
+// JW
+Ptr<NetDevice>
+BridgeNetDevice::GetPortFromAddress(Mac48Address addr)
+{
+		Time now = Simulator::Now();
+    auto iter = m_learnState.find(addr);
+    if (iter != m_learnState.end())
+    {
+        LearnedState& state = iter->second;
+        if ((!m_enableExpiration) || state.expirationTime > now)
+        {
+            return state.associatedPort;
+				}
+        else
+        {
+            m_learnState.erase(iter);
+        }
+    }
+		return nullptr;
 }
 
 Ptr<NetDevice>
@@ -212,23 +255,11 @@ BridgeNetDevice::GetLearnedState(Mac48Address source)
     NS_LOG_FUNCTION_NOARGS();
     if (m_enableLearning)
     {
-        Time now = Simulator::Now();
-        auto iter = m_learnState.find(source);
-        if (iter != m_learnState.end())
-        {
-            LearnedState& state = iter->second;
-            if (state.expirationTime > now)
-            {
-                return state.associatedPort;
-            }
-            else
-            {
-                m_learnState.erase(iter);
-            }
-        }
+    		return GetPortFromAddress(source);
     }
     return nullptr;
 }
+// JW: end
 
 uint32_t
 BridgeNetDevice::GetNBridgePorts() const
@@ -395,7 +426,7 @@ BridgeNetDevice::SendFrom(Ptr<Packet> packet,
     // try to use the learned state if data is unicast
     if (!dst.IsGroup())
     {
-        Ptr<NetDevice> outPort = GetLearnedState(dst);
+        Ptr<NetDevice> outPort = GetPortFromAddress(dst);
         if (outPort)
         {
             outPort->SendFrom(packet, src, dest, protocolNumber);

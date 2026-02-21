@@ -131,6 +131,10 @@ class BridgeNetDevice : public NetDevice
     void SetPromiscReceiveCallback(NetDevice::PromiscReceiveCallback cb) override;
     bool SupportsSendFrom() const override;
     Address GetMulticast(Ipv6Address addr) const override;
+		// JW: start
+		void DisableExpiration();
+		void AddEntry(Mac48Address source, Ptr<NetDevice> port);
+		// JW: end
 
   protected:
     void DoDispose() override;
@@ -192,6 +196,7 @@ class BridgeNetDevice : public NetDevice
      * @returns the port the source is associated to, or NULL if no association is known.
      */
     Ptr<NetDevice> GetLearnedState(Mac48Address source);
+		Ptr<NetDevice> GetPortFromAddress(Mac48Address addr); // JW
 
   private:
     NetDevice::ReceiveCallback m_rxCallback;               //!< receive callback
@@ -199,6 +204,7 @@ class BridgeNetDevice : public NetDevice
 
     Mac48Address m_address; //!< MAC address of the NetDevice
     Time m_expirationTime;  //!< time it takes for learned MAC state to expire
+		bool m_enableExpiration; // JW`
 
     /**
      * @ingroup bridge
