@@ -19,6 +19,7 @@ build_lib(
 								 model/msccl-header.cc
 #								 model/msccl-channel.cc
 								 helper/collectives-helper.cc
+								 helper/distributed-training-helper.cc
     HEADER_FILES model/distributed-training.h
 								 model/msccl.h
 								 model/gpu.h
@@ -28,6 +29,7 @@ build_lib(
 								 model/msccl-header.h
 #								 model/msccl-channel.h
 								 helper/collectives-helper.h
+								 helper/distributed-training-helper.h
     LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${libtap-bridge}
     TEST_SOURCES test/distributed-training-test-suite.cc
                  ${examples_as_tests_sources}
