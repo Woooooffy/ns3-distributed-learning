@@ -26,17 +26,23 @@ namespace ns3
 	std::ostream& GPU::DumpAlgo(std::ostream& oss){
 		return oss << m_algo;
 	}
-	Ptr<NetDevice> GPU::GetDeviceFromPeer(int16_t peer){
-		return m_deviceFromPeer[peer];
+	Ptr<NetDevice> GPU::GetSendDevicePeer(int16_t peer){
+		return m_sendDevicePeer[peer];
+	}
+	Ptr<NetDevice> GPU::GetRecvDevicePeer(int16_t peer){
+		return m_recvDevicePeer[peer];
 	}
 	Address GPU::GetPeerAddr(int16_t peer){
-		return m_peerAddr[peer];
+		return m_sendPeerAddr[peer];
 	}
-	void GPU::PushPeerDevice(int16_t peer, Ptr<NetDevice> dev){
-		m_deviceFromPeer[peer] = dev;
+	void GPU::PushRecvPeerDevice(int16_t peer, Ptr<NetDevice> dev){
+		m_recvDevicePeer[peer] = dev;
+	}
+	void GPU::PushSendPeerDevice(int16_t peer, Ptr<NetDevice> dev){
+		m_sendDevicePeer[peer] = dev;
 	}
 	void GPU::PushPeerAddr(int16_t peer, Address addr){
-		m_peerAddr[peer] = addr;
+		m_sendPeerAddr[peer] = addr;
 	}
 	
 }

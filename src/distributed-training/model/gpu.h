@@ -20,17 +20,20 @@ namespace ns3
 		struct mscclAlgorithm* GetAlgo();
 		void SetMaxNChannels(int maxNChannels);
 		int GetMaxNChannels();
-		Ptr<NetDevice> GetDeviceFromPeer(int16_t peer);
+		Ptr<NetDevice> GetSendDevicePeer(int16_t peer);
+		Ptr<NetDevice> GetRecvDevicePeer(int16_t peer);
 		Address GetPeerAddr(int16_t peer);
-		void PushPeerDevice(int16_t peer, Ptr<NetDevice> dev);
+		void PushRecvPeerDevice(int16_t peer, Ptr<NetDevice> dev);
+		void PushSendPeerDevice(int16_t peer, Ptr<NetDevice> dev);
 		void PushPeerAddr(int16_t peer, Address addr);
 		std::ostream& DumpAlgo(std::ostream& oss);
 
 		private:
 		int m_maxNChannels;
 		struct mscclAlgorithm m_algo;
-		std::map<int16_t, Ptr<NetDevice>> m_deviceFromPeer;
-		std::map<int16_t, Address> m_peerAddr;
+		std::map<int16_t, Ptr<NetDevice>> m_recvDevicePeer;
+		std::map<int16_t, Ptr<NetDevice>> m_sendDevicePeer;
+		std::map<int16_t, Address> m_sendPeerAddr;
 	};
 }
 #endif 

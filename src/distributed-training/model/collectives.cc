@@ -34,7 +34,7 @@ namespace ns3 {
 	void MscclChannel::ConnectSendPeer(int peerId){
 		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 		PacketSocketAddress addr;
-		addr.SetSingleDevice(m_app->GetDeviceFromPeer(peerId)->GetIfIndex());
+		addr.SetSingleDevice(m_app->GetSendDevicePeer(peerId)->GetIfIndex());
 		addr.SetPhysicalAddress(m_app->GetPeerAddr(peerId));
 		addr.SetProtocol(COLLECTIVES_PROTOCOL);
 
@@ -48,7 +48,7 @@ namespace ns3 {
 	void MscclChannel::SetupRecvPeer(int peerId) {
 		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 		PacketSocketAddress addr;
-		addr.SetSingleDevice(m_app->GetDeviceFromPeer(peerId)->GetIfIndex());
+		addr.SetSingleDevice(m_app->GetRecvDevicePeer(peerId)->GetIfIndex());
 		addr.SetProtocol(COLLECTIVES_PROTOCOL);
 		sock->Bind(addr);
 		m_recvSocketPeers[sock] = peerId;
@@ -304,9 +304,14 @@ namespace ns3 {
 		return DynamicCast<GPU>(GetNode())->GetPeerAddr(peer);
 	}
 
-	Ptr<NetDevice> CollectivesApplication::GetDeviceFromPeer(int16_t peer){
+	Ptr<NetDevice> CollectivesApplication::GetSendDevicePeer(int16_t peer){
 		// TODO same as above
-		return DynamicCast<GPU>(GetNode())->GetDeviceFromPeer(peer);
+		return DynamicCast<GPU>(GetNode())->GetSendDevicePeer(peer);
+	}
+
+	Ptr<NetDevice> CollectivesApplication::GetRecvDevicePeer(int16_t peer){
+		// TODO same as above
+		return DynamicCast<GPU>(GetNode())->GetRecvDevicePeer(peer);
 	}
 
 	int CollectivesApplication::GetPort(){

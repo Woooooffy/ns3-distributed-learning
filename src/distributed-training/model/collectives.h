@@ -7,7 +7,7 @@
 #include "ns3/internet-module.h"
 #include "gpu.h"
 #include "msccl.h"
-#include "data.h"
+#include "utils.h"
 #include "msccl-channel.h"
 #include "msccl-header.h"
 
@@ -113,7 +113,8 @@ namespace ns3 {
 			void SetAlgo(mscclAlgorithm* algo);
 			void SetCurrChunkSize(uint32_t chunksize);
 			Address GetPeerAddr(int16_t peerId);
-			Ptr<NetDevice> GetDeviceFromPeer(int16_t peerId);
+			Ptr<NetDevice> GetSendDevicePeer(int16_t peerId);
+			Ptr<NetDevice> GetRecvDevicePeer(int16_t peerId);
 			int GetPort();
 			DataType::Type GetDataType();
 		  TypeId GetSocketTypeId();

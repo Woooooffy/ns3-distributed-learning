@@ -1,5 +1,5 @@
-#ifndef DATA_H
-#define DATA_H
+#ifndef COLL_UTIL_H
+#define COLL_UTIL_H
 #include <cstdint>
 #include <string>
 #include "ns3/enum.h"
@@ -37,6 +37,10 @@ class DataType {
 				default:      return "UNKNOWN";
 			}
 		}
+};
+
+enum RedOp {
+	ADD
 };
 
 struct DataBuffer {

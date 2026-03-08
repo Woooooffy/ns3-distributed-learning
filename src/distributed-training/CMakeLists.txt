@@ -25,11 +25,12 @@ build_lib(
 								 model/gpu.h
                  model/topo.h
 								 model/collectives.h
-								 model/data.h
+								 model/utils.h
 								 model/msccl-header.h
 #								 model/msccl-channel.h
 								 helper/collectives-helper.h
 								 helper/distributed-training-helper.h
+								 model/topo_examples.h
     LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${libtap-bridge}
     TEST_SOURCES test/distributed-training-test-suite.cc
                  ${examples_as_tests_sources}
