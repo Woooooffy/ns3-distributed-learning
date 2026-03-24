@@ -26,23 +26,27 @@ namespace ns3
 	std::ostream& GPU::DumpAlgo(std::ostream& oss){
 		return oss << m_algo;
 	}
-	Ptr<NetDevice> GPU::GetSendDevicePeer(int16_t peer){
-		return m_sendDevicePeer[peer];
+	Ptr<NetDevice> GPU::GetSendDevicePeer(int16_t peer, int ind){
+		auto& devices = m_sendDevicePeer[peer];
+		// TODO consider other assignment policies
+		return devices.at(ind % devices.size());
 	}
-	Ptr<NetDevice> GPU::GetRecvDevicePeer(int16_t peer){
-		return m_recvDevicePeer[peer];
+	Ptr<NetDevice> GPU::GetRecvDevicePeer(int16_t peer, int ind){
+		auto& devices = m_recvDevicePeer[peer];
+		return devices.at(ind % devices.size());
 	}
-	Address GPU::GetPeerAddr(int16_t peer){
-		return m_sendPeerAddr[peer];
+	Address GPU::GetPeerAddr(int16_t peer, int ind){
+		auto& addresses = m_sendPeerAddr[peer];
+		return addresses.at(ind % addresses.size());
 	}
 	void GPU::PushRecvPeerDevice(int16_t peer, Ptr<NetDevice> dev){
-		m_recvDevicePeer[peer] = dev;
+		m_recvDevicePeer[peer].push_back(dev);
 	}
 	void GPU::PushSendPeerDevice(int16_t peer, Ptr<NetDevice> dev){
-		m_sendDevicePeer[peer] = dev;
+		m_sendDevicePeer[peer].push_back(dev);
 	}
 	void GPU::PushPeerAddr(int16_t peer, Address addr){
-		m_sendPeerAddr[peer] = addr;
+		m_sendPeerAddr[peer].push_back(addr);
 	}
 	
 }

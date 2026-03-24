@@ -112,9 +112,9 @@ namespace ns3 {
 			~CollectivesApplication();
 			void SetAlgo(mscclAlgorithm* algo);
 			void SetCurrChunkSize(uint32_t chunksize);
-			Address GetPeerAddr(int16_t peerId);
-			Ptr<NetDevice> GetSendDevicePeer(int16_t peerId);
-			Ptr<NetDevice> GetRecvDevicePeer(int16_t peerId);
+			Address GetPeerAddr(int16_t peerId, int id);
+			Ptr<NetDevice> GetSendDevicePeer(int16_t peerId, int id);
+			Ptr<NetDevice> GetRecvDevicePeer(int16_t peerId, int id);
 			int GetPort();
 			DataType::Type GetDataType();
 		  TypeId GetSocketTypeId();

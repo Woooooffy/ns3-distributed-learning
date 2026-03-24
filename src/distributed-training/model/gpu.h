@@ -7,6 +7,7 @@
 #include "msccl.h"
 #include <ostream>
 #include <map>
+#include <vector>
 
 namespace ns3
 {
@@ -20,9 +21,9 @@ namespace ns3
 		struct mscclAlgorithm* GetAlgo();
 		void SetMaxNChannels(int maxNChannels);
 		int GetMaxNChannels();
-		Ptr<NetDevice> GetSendDevicePeer(int16_t peer);
-		Ptr<NetDevice> GetRecvDevicePeer(int16_t peer);
-		Address GetPeerAddr(int16_t peer);
+		Ptr<NetDevice> GetSendDevicePeer(int16_t peer, int ind);
+		Ptr<NetDevice> GetRecvDevicePeer(int16_t peer, int ind);
+		Address GetPeerAddr(int16_t peer, int ind);
 		void PushRecvPeerDevice(int16_t peer, Ptr<NetDevice> dev);
 		void PushSendPeerDevice(int16_t peer, Ptr<NetDevice> dev);
 		void PushPeerAddr(int16_t peer, Address addr);
@@ -31,9 +32,9 @@ namespace ns3
 		private:
 		int m_maxNChannels;
 		struct mscclAlgorithm m_algo;
-		std::map<int16_t, Ptr<NetDevice>> m_recvDevicePeer;
-		std::map<int16_t, Ptr<NetDevice>> m_sendDevicePeer;
-		std::map<int16_t, Address> m_sendPeerAddr;
+		std::map<int16_t, std::vector<Ptr<NetDevice>>> m_recvDevicePeer;
+		std::map<int16_t, std::vector<Ptr<NetDevice>>> m_sendDevicePeer;
+		std::map<int16_t, std::vector<Address>> m_sendPeerAddr;
 	};
 }
 #endif 

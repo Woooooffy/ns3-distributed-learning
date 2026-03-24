@@ -2,64 +2,75 @@
 #define TOPO_EXAMPLE_H
 
 namespace ns3{
-	template <int N> class LinkSet {
+	template <int N> class AdjacencyMat {
 		public:
-			LinkSet(){}
-			LinkSet(const std::array<std::pair<int,int>, N>& data): m_edgeArray(data){}
-			~LinkSet(){}
-			std::array<std::pair<int, int>, N> GetEdgeArray(){
-				return m_edgeArray;
+			AdjacencyMat(){}
+			AdjacencyMat(const std::array<std::array<int, N>, N>& data): m_adjacency(data){}
+			~AdjacencyMat(){}
+			std::array<std::array<int, N>, N> GetAdjacency(){
+				return m_adjacency;
 			}
 		protected:
-			std::array<std::pair<int, int>, N> m_edgeArray;
+			std::array<std::array<int, N>, N> m_adjacency{};
 	};
 
-	template <int N> class Line : public LinkSet<(N - 1) * 2>{
+	template <int N> class Line : public AdjacencyMat<N>{
 		public:
 			Line(){
-				for (int i = 0; i < N - 1; ++i){
-					this->m_edgeArray[i] = {i, i + 1};
-				}
-				for (int i = 1; i < N; ++i){
-					this->m_edgeArray[N - 2 + i] = {i, i - 1};
+				for (int i = 0; i < N; ++i){
+					if (i + 1 < N) this->m_adjacency[i][i + 1] = 1;
+					if (i - 1 >= 0) this->m_adjacency[i][i - 1] = 1;
 				}
 			}
 			~Line(){}
 	};
 
-	template <int N> class Ring : public LinkSet<N * 2>{
+	template <int N> class Ring : public AdjacencyMat<N>{
 		public:
 			Ring(){
 				for (int i = 0; i < N; ++i){
-					this->m_edgeArray[i] = {i, (i + 1) % N};
-					this->m_edgeArray[N + i] = {i, (i + N - 1) % N};
+					this->m_adjacency[i][(i + 1) % N] = 1;
+					this->m_adjacency[i][(i + N - 1) % N] = 1;
 				}
 			}
 			~Ring(){}
 	};
 
-	template <int N> class FullyConnected: public LinkSet<N * (N - 1)>{
+	template <int N> class FullyConnected: public AdjacencyMat<N>{
 		public:
 			FullyConnected(){
-				int ind = 0;
 				for (int i = 0; i < N; ++i){
 					for (int j = 0; j < N; ++j){
-						if (i == j) continue;
-						this->m_edgeArray[ind] = {i, j};
-						++ind;
+						this->m_adjacency[i][j] = (i!=j);
 					}
 				}
 			}
 			~FullyConnected(){}
 	};
 
-	inline LinkSet<24> DGX1(
-		{{
-    {0, 1}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 4},
-    {1, 2}, {1, 3}, {1, 3}, {2, 3}, {2, 3}, {2, 6},
-    {2, 6}, {3, 7}, {4, 5}, {4, 5}, {4, 6}, {4, 7},
-    {5, 6}, {5, 7}, {5, 7}, {6, 7}, {6, 7}, {1, 5}
-		}});
+	template <int N> class HubAndSpoke: public AdjacencyMat<N + 1>{
+		public:
+			HubAndSpoke(){
+				for (int i = 0; i < N; ++i){
+					// last node is the switch
+					this->m_adjacency[N][i] = 1;
+					this->m_adjacency[i][N] = 1;
+				}
+			}
+	};
+
+inline constexpr std::array<std::array<int,8>,8> DGX1_DATA{{
+    {{0,2,1,1,2,0,0,0}},
+    {{2,0,1,2,0,1,0,0}},
+    {{1,1,0,2,0,0,2,0}},
+    {{1,2,2,0,0,0,0,1}},
+    {{2,0,0,0,0,2,1,1}},
+    {{0,1,0,0,2,0,1,2}},
+    {{0,0,2,0,1,1,0,2}},
+    {{0,0,0,1,1,2,2,0}}
+}};
+
+inline AdjacencyMat<8> DGX1(DGX1_DATA);
 } // namespace ns3
 
 

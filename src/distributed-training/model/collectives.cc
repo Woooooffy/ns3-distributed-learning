@@ -34,8 +34,8 @@ namespace ns3 {
 	void MscclChannel::ConnectSendPeer(int peerId){
 		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 		PacketSocketAddress addr;
-		addr.SetSingleDevice(m_app->GetSendDevicePeer(peerId)->GetIfIndex());
-		addr.SetPhysicalAddress(m_app->GetPeerAddr(peerId));
+		addr.SetSingleDevice(m_app->GetSendDevicePeer(peerId, m_id)->GetIfIndex());
+		addr.SetPhysicalAddress(m_app->GetPeerAddr(peerId, m_id));
 		addr.SetProtocol(COLLECTIVES_PROTOCOL);
 
 		sock->Bind(addr);
@@ -48,7 +48,7 @@ namespace ns3 {
 	void MscclChannel::SetupRecvPeer(int peerId) {
 		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 		PacketSocketAddress addr;
-		addr.SetSingleDevice(m_app->GetRecvDevicePeer(peerId)->GetIfIndex());
+		addr.SetSingleDevice(m_app->GetRecvDevicePeer(peerId, m_id)->GetIfIndex());
 		addr.SetProtocol(COLLECTIVES_PROTOCOL);
 		sock->Bind(addr);
 		m_recvSocketPeers[sock] = peerId;
@@ -177,8 +177,11 @@ namespace ns3 {
 		}
 		uint32_t bytes = nElems * DataType::GetSizeBytes(m_dataType); 
 		Ptr<Socket> sock = m_sendPeerSockets.at(sendpeer);
-		if (sendpeer == 0 && m_app->GetNode()->GetId() == 2){
-			NS_LOG_INFO("Debug line: calling Send from n2 to n0 here.");
+		if (sendpeer == 0 && m_app->GetNode()->GetId() == 1){
+			NS_LOG_INFO("Debug line: calling Send from n1 to n0 here.");
+		}
+		if (sendpeer == 1 && m_app->GetNode()->GetId() == 0){
+			NS_LOG_INFO("Debug line: calling Send from n0 to n1 here.");
 		}
 		Ptr<Packet> pkt = Create<ns3::Packet>((uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff), bytes);
 		MscclHeader header(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), bytes);
@@ -299,19 +302,19 @@ namespace ns3 {
 		m_currChunkSize = chunksize;
 	}
 
-	Address CollectivesApplication::GetPeerAddr(int16_t peer){
+	Address CollectivesApplication::GetPeerAddr(int16_t peer, int ind){
 		// TODO fix hard coding node downcast type
-		return DynamicCast<GPU>(GetNode())->GetPeerAddr(peer);
+		return DynamicCast<GPU>(GetNode())->GetPeerAddr(peer, ind);
 	}
 
-	Ptr<NetDevice> CollectivesApplication::GetSendDevicePeer(int16_t peer){
+	Ptr<NetDevice> CollectivesApplication::GetSendDevicePeer(int16_t peer, int ind){
 		// TODO same as above
-		return DynamicCast<GPU>(GetNode())->GetSendDevicePeer(peer);
+		return DynamicCast<GPU>(GetNode())->GetSendDevicePeer(peer, ind);
 	}
 
-	Ptr<NetDevice> CollectivesApplication::GetRecvDevicePeer(int16_t peer){
+	Ptr<NetDevice> CollectivesApplication::GetRecvDevicePeer(int16_t peer, int ind){
 		// TODO same as above
-		return DynamicCast<GPU>(GetNode())->GetRecvDevicePeer(peer);
+		return DynamicCast<GPU>(GetNode())->GetRecvDevicePeer(peer, ind);
 	}
 
 	int CollectivesApplication::GetPort(){
