@@ -10,6 +10,9 @@ if(${ENABLE_EXAMPLES})
         )
 endif()
 
+find_package(LibXml2 REQUIRED)
+
+
 build_lib(
     LIBNAME distributed-training
     SOURCE_FILES model/distributed-training.cc
@@ -31,7 +34,7 @@ build_lib(
 								 helper/collectives-helper.h
 								 helper/distributed-training-helper.h
 								 model/topo_examples.h
-    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${libtap-bridge}
+    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${libtap-bridge} ${LIBXML2_LIBRARIES}
     TEST_SOURCES test/distributed-training-test-suite.cc
                  ${examples_as_tests_sources}
 )
