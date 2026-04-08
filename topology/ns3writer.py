@@ -14,6 +14,8 @@ class NS3Writer:
 		self.indent = 0
 		self.container_uid = 0
 
+		self.container_map = {} # (src_name, dst_name) -> container_expr
+
 	def emit(self, line=""):
 		self.lines.append("    " * self.indent + line)
 
@@ -25,6 +27,7 @@ class NS3Writer:
 			self._handle_insn(insn)
 
 		self._emit_bridge_setup()
+		self._emit_gpu_setup()
 		self._emit_main_end()
 
 		with open(self.filename, "w") as f:
@@ -91,6 +94,7 @@ class NS3Writer:
 		bw_val, bw_unit = insn.data_rate
 
 		self.emit(f"CsmaHelper csma{hid};")
+		self.emit(f"csma{hid}.SetDeviceAttribute(\"Mtu\", UintegerValue({insn.mtu}));")
 		self.emit(f'csma{hid}.SetChannelAttribute("Delay", StringValue("{delay_val}{delay_unit}"));')
 		self.emit(f'csma{hid}.SetChannelAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
 		self.emit("")
@@ -113,11 +117,16 @@ class NS3Writer:
 
 		hid = insn.link_helper
 
+
 		self.emit(f"NodeContainer nc{hid}_{self.container_uid};")
 		self.emit(f"nc{hid}_{self.container_uid}.Add({src_expr});")
 		self.emit(f"nc{hid}_{self.container_uid}.Add({dst_expr});")
-		self.emit(f"NetDeviceContainer devs{hid}_{self.container_uid} = csma{hid}.Install(nc{hid}_{self.container_uid});")
+		container_expr = f"devs{hid}_{self.container_uid}"
+		self.emit(f"NetDeviceContainer {container_expr} = csma{hid}.Install(nc{hid}_{self.container_uid});")
 		self.emit("")
+
+		# Track mac addr of installed devices
+		self.container_map[(insn.src, insn.dst)] = container_expr 
 
 		# Track switch ports for bridging later
 		if src_type == "switch":
@@ -139,17 +148,21 @@ class NS3Writer:
 		self.container_uid += 1
 	
 	def _emit_push_send_device(self, src_expr, dst_name, dev_expr):
-		self.emit(f"{src_expr}->PushSendPeerDevice({self.gpus[dst_name]}, {dev_expr});")
+		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerDevice({self.gpus[dst_name]}, {dev_expr});")
 	
 	def _emit_push_recv_device(self, dst_expr, src_name, dev_expr):
-		self.emit(f"{dst_expr}->PushRecvPeerDevice({self.gpus[src_name]}, {dev_expr});")
+		self.emit(f"DynamicCast<GPU>({dst_expr})->PushRecvPeerDevice({self.gpus[src_name]}, {dev_expr});")
+
+	def _emit_push_peer_addr(self, src_expr, src_name, dst_name):
+		dev_expr = f"{self.container_map[src_name, dst_name]}.Get(1)"
+		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerAddr({self.gpus[dst_name]}, ({dev_expr})->GetAddress());")
 	
 	def _emit_loop_push_send_device(self, src_expr, src_name, dev_expr):
 		self.emit(f"for (int i = 0; i < {len(self.gpus)}; ++i)" + "{")
 		self.indent += 1
 		self.emit(f"if (i != {self.gpus[src_name]})" + "{")
 		self.indent += 1
-		self.emit(f"{src_expr}->PushSendPeerDevice(i, {dev_expr});")
+		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerDevice(i, {dev_expr});")
 		self.indent -= 1
 		self.emit("}")
 		self.indent -= 1
@@ -160,7 +173,7 @@ class NS3Writer:
 		self.indent += 1
 		self.emit(f"if (i != {self.gpus[dst_name]})" + "{")
 		self.indent += 1
-		self.emit(f"{dst_expr}->PushRecvPeerDevice(i, {dev_expr});")
+		self.emit(f"DynamicCast<GPU>({dst_expr})->PushRecvPeerDevice(i, {dev_expr});")
 		self.indent -= 1
 		self.emit("}")
 		self.indent -= 1
@@ -192,3 +205,18 @@ class NS3Writer:
 			self.emit(f"BridgeHelper bridge_{sw};")
 			self.emit(f"bridge_{sw}.Install(swtches.Get({sw_idx}), bridgePorts_{sw});")
 			self.emit("")
+	
+	
+	# --------------------------------------------------
+	# GPU handling
+	# --------------------------------------------------
+
+	# For now just print container map
+	def _emit_gpu_setup(self):
+		self.emit("")
+		self.emit("/*")
+		self.indent += 1
+		for pair, container in self.container_map.items():
+			self.emit(f"{pair[0]} -> {pair[1]}: {container}")
+		self.indent -= 1
+		self.emit("*/")

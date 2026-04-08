@@ -32,6 +32,10 @@ class NS3MakeLinkHelper(NS3Insn):
 		self.id = id
 		self.delay = attrs["latency"]
 		self.data_rate = attrs["bandwidth"]
+		if "mtu" in attrs:
+			self.mtu = attrs["mtu"]
+		else:
+			self.mtu = 9000
 	
 	def __repr__(self) -> str:
 		return f"Create NS3 link helper {self.id}: latency {self.delay} bandwidth {self.data_rate}"
@@ -60,7 +64,7 @@ class NS3CodeGenerator():
 		self.GenerateModule(self.modules["main"])
 		insns = [NS3MakeGPUs(self.gpu_counter), NS3MakeSwitches(self.switch_counter)]
 		for tup, id in self.link_helpers.items():
-			args = {"latency": tup[0], "bandwidth": tup[1]}
+			args = {"latency": tup[0], "bandwidth": tup[1], "mtu": tup[2]}
 			insns.append(NS3MakeLinkHelper(id, **args))
 		self.insns = insns + self.insns
 
@@ -117,7 +121,8 @@ class NS3CodeGenerator():
 		if pre != "":
 			src = pre + "_" + src
 			dst = pre + "_" + dst
-		attr = (insn.attrs["latency"], insn.attrs["bandwidth"]) 
+		mtu = insn.attrs["mtu"] if "mtu" in insn.attrs else 9000
+		attr = (insn.attrs["latency"], insn.attrs["bandwidth"], mtu) 
 		helper = self.link_helpers.get(attr)
 		if helper is None:
 			# add this to list of helpers to be built

@@ -8,7 +8,7 @@ with open("grammar.lark", "r") as f:
 
 parser = Lark(grammar_text, parser="lalr")
 
-with open("examples/hubs2.topo", "r") as f:
+with open("examples/hubs1.topo", "r") as f:
 	topo_text = f.read()
 
 tree = parser.parse(topo_text)
@@ -28,5 +28,5 @@ print(codegen.link_helpers)
 
 print("Code emission started")
 
-writer = NS3Writer("examples/output/hubs2.cc", codegen)
+writer = NS3Writer("examples/output/hubs1.cc", codegen)
 writer.write()

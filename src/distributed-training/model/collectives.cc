@@ -84,9 +84,6 @@ namespace ns3 {
 				recvSize = packet->GetSize();
 			}
 			else NS_FATAL_ERROR("Received packet with incomplete header");
-			if (hdr.GetSrcGpu() == 2 && hdr.GetDstGpu() == 0){
-				NS_LOG_INFO("Debug line: received packet from 2 to 0");
-			}
 			// TODO: properly consider cross recv op boundary packets
 			// tmp buffer and offset for cross recv op boundary packets
 			uint8_t* tmp = (uint8_t*) malloc(recvSize);
@@ -99,6 +96,9 @@ namespace ns3 {
 					// TODO: forwarding not yet handled
 				NS_LOG_INFO("Ignoring packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expecting " << peerId << " to " << m_app->GetNode()->GetId());
 				break;
+			}
+			if (hdr.GetSrcGpu() == 1 && hdr.GetDstGpu() == 4){
+				NS_LOG_INFO("Debug print: packet from 1 to 4");
 			}
 			if (m_id != hdr.GetChannel()){
 				// expected to happen sometimes
@@ -129,7 +129,9 @@ namespace ns3 {
 				return;
 			}
 			// otherwise do not yet know what to do; post this ready recv
-			if (m_recvReadyByBufferRegion.contains(dstInfo) && m_recvReadyByBufferRegion[dstInfo] == true) NS_FATAL_ERROR("Received multiple packets for same dst region. Check scheduling bugs");
+			if (m_recvReadyByBufferRegion.contains(dstInfo) && m_recvReadyByBufferRegion[dstInfo] == true){
+				NS_FATAL_ERROR("Received multiple packets for same dst region. Check scheduling bugs or duplicate packet in network");
+			}
 			m_recvReadyByBufferRegion[dstInfo] = true;
 			/* std::queue<PendingTransfer>& recvQueue = m_pendingRecvs.at(peerId);	
 			while (recvSize > 0 && !recvQueue.empty()){
