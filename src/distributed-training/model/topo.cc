@@ -1,10 +1,13 @@
 #include "topo.h"
+#ifdef HAVE_LIBXML2
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+#endif
 
 namespace ns3
 {
 	NS_LOG_COMPONENT_DEFINE("DistributedTopo");
+	#ifdef HAVE_LIBXML2
 	#define XML_GET_PROP_STR(node, prop, out)                    \
   do {                                                       \
     xmlChar* v = xmlGetProp(node, BAD_CAST prop);            \
@@ -19,6 +22,18 @@ namespace ns3
     out = atoi((const char*)v);                              \
     xmlFree(v);                                              \
   } while (0)
+	#else
+
+	#define XML_GET_PROP_STR(node, prop, out) \
+	do { \
+		NS_FATAL_ERROR("XML support not enabled"); \
+	} while (0)
+
+	#define XML_GET_PROP_INT(node, prop, out) \
+	do { \
+		NS_FATAL_ERROR("XML support not enabled"); \
+	} while (0)
+	#endif
 
 	TopoNodeSet::TopoNodeSet(){}
 
@@ -74,6 +89,8 @@ namespace ns3
 	}
 
 	AlgoParseResult ParseAlgoFromXml(const char* file_path, TopoNodeSet nodes){
+		// NOTE: entire method makes use of libxml2-dev being installed
+		#ifdef HAVE_LIBXML2
 		int nRanks = nodes.GetNNodes();
 		xmlDocPtr doc = xmlReadFile(file_path, NULL, 0);
 	  if (!doc) return AlgoParseResult::FILE_READ_ERROR;
@@ -459,6 +476,9 @@ namespace ns3
     } // gpu
 		xmlFreeDoc(doc);
 		return ALGO_PARSE_SUCCESS;	
+	#else
+	NS_FATAL_ERROR("libxml2 support not enabled");
+	#endif
  	} // ParsAlgoFromXML
 
 } // namespace ns3

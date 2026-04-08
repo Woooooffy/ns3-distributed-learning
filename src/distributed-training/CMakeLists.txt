@@ -10,7 +10,15 @@ if(${ENABLE_EXAMPLES})
         )
 endif()
 
-find_package(LibXml2 REQUIRED)
+find_package(LibXml2)
+
+if(LIBXML2_FOUND)
+    add_definitions(-DHAVE_LIBXML2)
+    include_directories(${LIBXML2_INCLUDE_DIR})
+    set(EXTRA_LIBS ${LIBXML2_LIBRARIES})
+else()
+    message(WARNING "LibXml2 not found, XML features disabled")
+endif()
 
 
 build_lib(
@@ -34,7 +42,7 @@ build_lib(
 								 helper/collectives-helper.h
 								 helper/distributed-training-helper.h
 								 model/topo_examples.h
-    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${LIBXML2_LIBRARIES}
+    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${EXTRA_LIBS}
     TEST_SOURCES test/distributed-training-test-suite.cc
                  ${examples_as_tests_sources}
 )
