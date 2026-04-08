@@ -34,7 +34,7 @@ build_lib(
 								 helper/collectives-helper.h
 								 helper/distributed-training-helper.h
 								 model/topo_examples.h
-    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${libtap-bridge} ${LIBXML2_LIBRARIES}
+    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${LIBXML2_LIBRARIES}
     TEST_SOURCES test/distributed-training-test-suite.cc
                  ${examples_as_tests_sources}
 )
