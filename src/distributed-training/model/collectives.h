@@ -125,7 +125,7 @@ namespace ns3 {
 			void AllocBuffer(size_t size, DataBuffer* buf);
 			void* GetBufferPtrRawBytes(uint16_t buf, size_t byte_offset);
 			void* GetBufferPtr(uint16_t buf, int16_t offset);
-			void DumpBuffer(DataBuffer* buf, std::ofstream& log);
+			void DumpBuffer(DataBuffer* buf, std::ostream& log);
 
 		protected:
   		void StartApplication() override;

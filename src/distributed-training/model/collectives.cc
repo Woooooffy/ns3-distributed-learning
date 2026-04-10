@@ -538,7 +538,7 @@ namespace ns3 {
 		return GetBufferPtrRawBytes(buf, offset * m_currChunkSize * (DataType::GetSizeBytes(m_dataType)));
 	}
 
-	void CollectivesApplication::DumpBuffer(DataBuffer* buf, std::ofstream& log_txt){
+	void CollectivesApplication::DumpBuffer(DataBuffer* buf, std::ostream& log_txt){
 		void* data = buf->dataBuffer;
 		size_t count = buf->len;
 		log_txt << "On Node " << GetNode() << ":\n";
