@@ -3,6 +3,7 @@ module hub_spoke(N){
 	for i in (1, N){
 		node n{i} type=gpu;
 		link n{i} sw bandwidth=125[Gbps] latency=300[ns];
+		link sw n{i} bandwidth=125[Gbps] latency=300[ns];
 	}
 }
 

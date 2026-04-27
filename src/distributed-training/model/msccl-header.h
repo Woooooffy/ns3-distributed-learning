@@ -13,7 +13,7 @@ namespace ns3 {
 			static TypeId GetTypeId();
 		  virtual TypeId GetInstanceTypeId() const override;
 			MscclHeader();
-			MscclHeader(uint16_t src, uint16_t dst, uint16_t chan, uint16_t dstBuf, uint16_t dstOff, uint32_t bytes);
+			MscclHeader(uint16_t src, uint16_t dst, uint16_t chan, uint16_t dstBuf, uint16_t dstOff, uint32_t bytes, uint32_t flowId=0);
 			void Serialize(Buffer::Iterator i) const override;
 			uint32_t Deserialize(Buffer::Iterator i) override;
 			uint32_t GetSerializedSize() const override;
@@ -23,6 +23,7 @@ namespace ns3 {
 			uint16_t GetChannel();
 			uint16_t GetDstBuf();
 			uint16_t GetDstOff();
+			uint32_t GetFlowId();
 			uint32_t GetBytes();
 
 		private:
@@ -31,6 +32,7 @@ namespace ns3 {
 			uint16_t m_channel;
 			uint16_t m_dstBuf;
 			uint16_t m_dstOff;
+			uint32_t m_flowId;
 			uint32_t m_bytes;
 	};
 } // namespace ns3

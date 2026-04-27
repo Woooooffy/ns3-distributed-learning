@@ -78,7 +78,17 @@ CsmaNetDevice::GetTypeId()
                           PointerValue(),
                           MakePointerAccessor(&CsmaNetDevice::m_queue),
                           MakePointerChecker<Queue<Packet>>())
-
+						// JW: interframe gap related additions
+						.AddAttribute("UseDefaultInterframeGap", 
+								"Whether to use the 96 bit times default",
+								BooleanValue(true),
+								MakeBooleanAccessor(&CsmaNetDevice::m_useDefaultInterframeGap),
+								MakeBooleanChecker())
+						.AddAttribute("InterframeGap",
+              	"Time between packets as in Ethernet (96 bit times default)",
+              	TimeValue(MicroSeconds(0)),
+              	MakeTimeAccessor(&CsmaNetDevice::m_tInterframeGap),
+              	MakeTimeChecker())
             //
             // Trace sources at the "top" of the net device, where packets transition
             // to/from higher layers.
@@ -660,7 +670,9 @@ CsmaNetDevice::Attach(Ptr<CsmaChannel> ch)
     //
     // We use the Ethernet interframe gap of 96 bit times.
     //
-    m_tInterframeGap = m_bps.CalculateBytesTxTime(96 / 8);
+		if (m_useDefaultInterframeGap){ // JW: prevent overwriting attribute
+	    m_tInterframeGap = m_bps.CalculateBytesTxTime(96 / 8);
+		}
 
     //
     // This device is up whenever a channel is attached to it.
@@ -1065,4 +1077,11 @@ CsmaNetDevice::AssignStreams(int64_t stream)
     return m_backoff.AssignStreams(stream);
 }
 
+// JW
+bool CsmaNetDevice::UseDefaultInterframeGap(){
+	return m_useDefaultInterframeGap;
+}
+DataRate CsmaNetDevice::GetBps(){
+	return m_bps;
+}
 } // namespace ns3

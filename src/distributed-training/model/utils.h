@@ -4,7 +4,7 @@
 #include <string>
 #include "ns3/enum.h"
 namespace ns3 {
-static const uint16_t COLLECTIVES_PROTOCOL = 0x9000;
+static const uint16_t COLLECTIVES_PROTOCOL = 0x9500;
 class DataType {
 	public:
 		enum Type : uint8_t {

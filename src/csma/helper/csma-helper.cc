@@ -303,10 +303,10 @@ CsmaHelper::InstallPriv(Ptr<Node> node, Ptr<CsmaChannel> channel) const
 {
     Ptr<CsmaNetDevice> device = m_deviceFactory.Create<CsmaNetDevice>();
     device->SetAddress(Mac48Address::Allocate());
-    node->AddDevice(device);
+	  node->AddDevice(device);
     Ptr<Queue<Packet>> queue = m_queueFactory.Create<Queue<Packet>>();
     device->SetQueue(queue);
-    device->Attach(channel);
+    device->Attach(channel); 
     if (m_enableFlowControl)
     {
         // Aggregate a NetDeviceQueueInterface object

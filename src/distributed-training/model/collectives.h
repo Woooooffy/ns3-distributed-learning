@@ -19,6 +19,12 @@
 #include <fstream>
 #include <iostream>
 
+#define FLOW_ID_TEST 
+// for temporary testing with inserting flow ID here
+// to be disabled when such info properly encoded in xml
+
+
+
 /*
 TODO: model work index & iter for sequences of ops & reuse of algorithm over larger grid
 Note: msccl uses (work_index, iter, step) flag for dependency tracking, where step is tracked UNIVERSALLY across all TBs- 
@@ -86,6 +92,10 @@ namespace ns3 {
 			void RecvRedSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems); 
 			void RecvRedCp(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff);
 			void RecvRedCpSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems);
+			#ifdef FLOW_ID_TEST
+			uint32_t GetFlowId(int src, int dst);
+			void SetFlowIdTable(std::map<std::pair<int, int>, uint32_t>* table);
+			#endif
 	
 			void Close();
 		private:
@@ -100,6 +110,10 @@ namespace ns3 {
 			std::map<std::pair<uint16_t, uint16_t>, PendingTransfer> m_pendingRecvByBufferRegion;
 			std::map<std::pair<uint16_t, uint16_t>, bool> m_recvReadyByBufferRegion;
 			std::map<Ptr<Socket>, std::queue<PendingTransfer>> m_pendingSends;
+			#ifdef FLOW_ID_TEST
+			std::map<std::pair<int, int>, uint32_t>* m_flowIds;
+			uint32_t m_flowId_counter = 0;
+			#endif
 	};
 
 
@@ -126,6 +140,11 @@ namespace ns3 {
 			void* GetBufferPtrRawBytes(uint16_t buf, size_t byte_offset);
 			void* GetBufferPtr(uint16_t buf, int16_t offset);
 			void DumpBuffer(DataBuffer* buf, std::ostream& log);
+			#ifdef FLOW_ID_TEST
+			// void SetFlowIdTableForChannel(std::map<std::pair<int, int>, uint32_t>*, int channel);
+			// void SetFlowIdTableForAllChannels(std::map<std::pair<int, int>, uint32_t>* table);
+			void StoreFlowIdTable(std::map<std::pair<int, int>, uint32_t>* table);
+			#endif
 
 		protected:
   		void StartApplication() override;
@@ -155,6 +174,9 @@ namespace ns3 {
 			DataBuffer m_srcBuf;
 			DataBuffer m_dstBuf;
 			DataBuffer m_scratchBuf;
+			#ifdef FLOW_ID_TEST
+			std::map<std::pair<int, int>, uint32_t>* m_flowIds;
+			#endif
 	};
 } // namespace ns3
 #endif

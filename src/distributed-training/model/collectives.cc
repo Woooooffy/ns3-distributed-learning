@@ -31,6 +31,26 @@ namespace ns3 {
     m_listenSocket->Listen();
 	} */
 
+	#ifdef FLOW_ID_TEST
+	uint32_t MscclChannel::GetFlowId(int srcId, int dstId){
+		std::pair<int, int> key(srcId, dstId);
+		if (m_flowIds == nullptr){
+			NS_FATAL_ERROR("Flow id table not set in FLOW_ID_TEST mode.");
+		}
+		if (auto search = m_flowIds->find(key); search != m_flowIds->end()){
+			return search->second;
+		}
+		// m_flowIds[key] = m_flowId_counter;
+		// m_flowId_counter++;
+		// return m_flowIds[key];
+		NS_FATAL_ERROR("Flow Id not found for " << srcId << " to " << dstId << ".");
+	}
+
+	void MscclChannel::SetFlowIdTable(std::map<std::pair<int, int>, uint32_t>* table){
+		m_flowIds = table;
+	}
+	#endif
+
 	void MscclChannel::ConnectSendPeer(int peerId){
 		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 		PacketSocketAddress addr;
@@ -186,7 +206,11 @@ namespace ns3 {
 			NS_LOG_INFO("Debug line: calling Send from n0 to n1 here.");
 		}
 		Ptr<Packet> pkt = Create<ns3::Packet>((uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff), bytes);
-		MscclHeader header(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), bytes);
+		int flowId = 0;
+		#ifdef FLOW_ID_TEST
+			flowId = GetFlowId(m_app->GetNode()->GetId(), sendpeer);
+		#endif
+		MscclHeader header(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), bytes, flowId);
 		pkt->AddHeader(header);
 		PendingTransfer send(bid, sid, bytes + header.GetSerializedSize(), MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
 		m_pendingSends[sock].push(send);
@@ -505,6 +529,9 @@ namespace ns3 {
 			mscclChannelInfo* chanInfo = &(m_algo->mscclChannels[i]);	
 			m_channels.emplace(i, MscclChannel(i, this));
 			MscclChannel* chan = &m_channels[i];
+			#ifdef FLOW_ID_TEST
+			chan->SetFlowIdTable(m_flowIds);
+			#endif
 			//chan->SetupListener();
 			for (int r = 0; r < chanInfo->nRecvPeers; ++r){
 				chan->SetupRecvPeer(chanInfo->recvPeerInfo[r].peer);
@@ -514,6 +541,21 @@ namespace ns3 {
 			}
 		}
 	}
+
+	#ifdef FLOW_ID_TEST
+	/*
+	void CollectivesApplication::SetFlowIdTableForChannel(std::map<std::pair<int, int>, uint32_t>* table, int channel){
+		m_channels[channel].SetFlowIdTable(table);
+	}
+	void CollectivesApplication::SetFlowIdTableForAllChannels(std::map<std::pair<int, int>, uint32_t>* table){
+		for (auto cur = m_channels.begin(); cur != m_channels.end(); ++cur){
+			cur->second.SetFlowIdTable(table);
+		}
+	}*/
+	void CollectivesApplication::StoreFlowIdTable(std::map<std::pair<int, int>, uint32_t>* table){
+		m_flowIds = table;
+	}
+	#endif
 
 	void* CollectivesApplication::GetBufferPtrRawBytes(uint16_t buf, size_t offset){
 		DataBuffer buffer;

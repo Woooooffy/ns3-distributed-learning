@@ -163,7 +163,7 @@ class BridgeNetDevice : public NetDevice
      * @param src the packet source
      * @param dst the packet destination
      */
-    void ForwardUnicast(Ptr<NetDevice> incomingPort,
+    virtual void ForwardUnicast(Ptr<NetDevice> incomingPort,
                         Ptr<const Packet> packet,
                         uint16_t protocol,
                         Mac48Address src,
@@ -198,7 +198,7 @@ class BridgeNetDevice : public NetDevice
     Ptr<NetDevice> GetLearnedState(Mac48Address source);
 		Ptr<NetDevice> GetPortFromAddress(Mac48Address addr); // JW
 
-  private:
+//  private: // JW made everyting protected
     NetDevice::ReceiveCallback m_rxCallback;               //!< receive callback
     NetDevice::PromiscReceiveCallback m_promiscRxCallback; //!< promiscuous receive callback
 

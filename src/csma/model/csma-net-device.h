@@ -25,6 +25,7 @@
 
 #include <cstring>
 
+
 namespace ns3
 {
 
@@ -332,6 +333,10 @@ class CsmaNetDevice : public NetDevice
      */
     int64_t AssignStreams(int64_t stream);
 
+		bool UseDefaultInterframeGap();
+
+		DataRate GetBps();
+
   protected:
     /**
      * Perform any object release functionality required to break reference
@@ -495,6 +500,9 @@ class CsmaNetDevice : public NetDevice
      * @see class Time
      */
     Time m_tInterframeGap;
+
+		// JW: for restoring original behavior after adding interframe gap as an attribute
+		bool m_useDefaultInterframeGap;
 
     /**
      * Holds the backoff parameters and is used to calculate the next

@@ -202,7 +202,7 @@ class NS3Writer:
 			for p in ports:
 				self.emit(f"bridgePorts_{sw}.Add({p});")
 
-			self.emit(f"BridgeHelper bridge_{sw};")
+			self.emit(f"SmartSwitchHelper bridge_{sw};")
 			self.emit(f"bridge_{sw}.Install(swtches.Get({sw_idx}), bridgePorts_{sw});")
 			self.emit("")
 	

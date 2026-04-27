@@ -19,7 +19,7 @@ namespace ns3{
 			int* outptr = (int*) app->GetDstBuffer()->dataBuffer;
 			for (int c = 0; c < n_chunks; ++c){
 				int chunk = c * n_per_chunk;
-				int val = i * 16 * 16 * 16 + c * 16 * 16;
+				int val = i * 16 * 16 * 16 * 16 + c * 16 * 16 * 16;
 				for (int j = 0; j < n_per_chunk; ++j){
 					ptr[chunk + j] = val + j;
 					// TODO properly handle copy
@@ -48,10 +48,10 @@ namespace ns3{
 			else{
 				for (int n = 0; n < m_n_apps; ++n){
 					int node = n * n_chunks * n_per_chunk;
-					int node_base = n * 16 * 16 * 16;
+					int node_base = n * 16 * 16 * 16 * 16;
 					for (int c = 0; c < n_chunks; ++c){
 							int chunk = node + c * n_per_chunk;
-							int chunk_base = node_base + c * 16 * 16;
+							int chunk_base = node_base + c * 16 * 16 * 16;
 						for (int j = 0; j < n_per_chunk; ++j){
 							if (ptr[chunk + j] != chunk_base + j){
 								if (m_verbose) m_log << "Incorrect result on node " << i << " at output " << chunk + j << ": expected " << chunk_base + j << ", got " << ptr[chunk + j] << std::endl;
