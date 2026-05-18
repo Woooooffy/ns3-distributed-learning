@@ -132,7 +132,7 @@ namespace ns3 {
 			void* dst = m_app->GetBufferPtr(dstInfo.first, dstInfo.second);
 			memcpy(dst, tmp + tmp_offset, recvSize);
 			// if waiting on this recv
-			if (m_pendingRecvByBufferRegion.contains(dstInfo)){
+			if (m_pendingRecvByBufferRegion.find(dstInfo) != m_pendingRecvByBufferRegion.end()){
 				auto& cur = m_pendingRecvByBufferRegion[dstInfo];
 				// TODO: same as above
 				switch (cur.op){
@@ -149,7 +149,7 @@ namespace ns3 {
 				return;
 			}
 			// otherwise do not yet know what to do; post this ready recv
-			if (m_recvReadyByBufferRegion.contains(dstInfo) && m_recvReadyByBufferRegion[dstInfo] == true){
+			if (m_recvReadyByBufferRegion.find(dstInfo) != m_recvReadyByBufferRegion.end() && m_recvReadyByBufferRegion[dstInfo] == true){
 				NS_FATAL_ERROR("Received multiple packets for same dst region. Check scheduling bugs or duplicate packet in network");
 			}
 			m_recvReadyByBufferRegion[dstInfo] = true;
@@ -228,7 +228,7 @@ namespace ns3 {
 		PendingTransfer recv(bid, sid, nElems * DataType::GetSizeBytes(m_dataType), MSCCL_RECV, 0, -1, dstbuf, dstoff);
 		std::pair<uint16_t, uint16_t> dstinfo(dstbuf, static_cast<uint16_t> (dstoff));
 		// if we have already received
-		if (m_recvReadyByBufferRegion.contains(dstinfo) && m_recvReadyByBufferRegion[dstinfo] == true){
+		if (m_recvReadyByBufferRegion.find(dstinfo)!= m_recvReadyByBufferRegion.end() && m_recvReadyByBufferRegion[dstinfo] == true){
 			Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, m_app, bid, sid);
 			m_recvReadyByBufferRegion[dstinfo] = false;
 			return;
@@ -291,7 +291,7 @@ namespace ns3 {
 					"DataType",
 					"Element datatype used in the collective operation",
 					EnumValue(DataType::INT32),
-					MakeEnumAccessor<DataType::Type>(&CollectivesApplication::m_dataType),
+					MakeEnumAccessor(&CollectivesApplication::SetDataType, &CollectivesApplication::GetDataType),
 					MakeEnumChecker(	
 						DataType::FLOAT32, "FLOAT32",
 						DataType::FLOAT64, "FLOAT64",
@@ -347,8 +347,12 @@ namespace ns3 {
 		return m_port;
 	}
 
-	DataType::Type CollectivesApplication::GetDataType(){
+	DataType::Type CollectivesApplication::GetDataType() const{
 		return m_dataType;
+	}
+
+	void CollectivesApplication::SetDataType(DataType::Type type){
+		m_dataType = type;
 	}
 
 	TypeId CollectivesApplication::GetSocketTypeId(){

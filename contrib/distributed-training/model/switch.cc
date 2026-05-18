@@ -26,7 +26,7 @@ namespace ns3{
 	}
 
 	void SmartSwitch::ForwardUnicast(Ptr<NetDevice> device, Ptr<const Packet> packet, uint16_t protocol, Mac48Address src, Mac48Address dst){
-		if (m_seen_packets.contains(packet->GetUid())){
+		if (m_seen_packets.find(packet->GetUid()) != m_seen_packets.end()){
 			NS_LOG_WARN("Received duplicate packet " << packet->GetUid());
 			std::cout << "Received duplicate packet " << packet->GetUid() << std::endl;
 			auto& vec = (*m_shared_trace)[packet->GetUid()];

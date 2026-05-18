@@ -18,6 +18,7 @@
 #include <queue>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 #define FLOW_ID_TEST 
 // for temporary testing with inserting flow ID here
@@ -130,7 +131,8 @@ namespace ns3 {
 			Ptr<NetDevice> GetSendDevicePeer(int16_t peerId, int id);
 			Ptr<NetDevice> GetRecvDevicePeer(int16_t peerId, int id);
 			int GetPort();
-			DataType::Type GetDataType();
+			DataType::Type GetDataType() const;
+			void SetDataType(DataType::Type type);
 		  TypeId GetSocketTypeId();
 			void StepCompletionCallback(int8_t bid, int16_t sid);
 			DataBuffer* GetSrcBuffer();
