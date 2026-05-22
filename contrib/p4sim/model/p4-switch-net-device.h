@@ -40,13 +40,14 @@ namespace ns3
 #define P4SWITCH_ARCH_V1MODEL 0
 #define P4SWITCH_ARCH_PSA 1
 #define P4NIC_ARCH_PNA 2
-#define CUSTOM_ARCH 3 // JW
+#define CUSTOM_ARCH 4 // JW
 
 class Node;
 class SwitchedEthernetChannel;
 class P4CoreV1model;
 class P4CorePsa;
 class P4PnaNic;
+class CustomCore;
 
 /**
  * \ingroup p4sim
@@ -173,6 +174,9 @@ class P4SwitchNetDevice : public NetDevice
 
     /** \return V1model core pointer, or nullptr if another arch is active. */
     P4CoreV1model* GetV1ModelCore() const;
+
+		// JW: Custom core accessor
+		CustomCore* GetCustomCore() const;
 
     /**
      * \brief Emit a switch event trace (called by pipeline cores).

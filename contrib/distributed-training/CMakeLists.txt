@@ -33,7 +33,6 @@ build_lib(
 								 helper/distributed-training-helper.cc
 								 model/collective-tests.cc
 								 model/switch.cc
-								 model/custom-switch.cc
 								 helper/switch-helper.cc
     HEADER_FILES model/distributed-training.h
 								 model/msccl.h
@@ -48,7 +47,6 @@ build_lib(
 								 model/topo_examples.h
 								 model/collective-tests.h
 								 model/switch.h
-								 model/custom-switch.h
 								 helper/switch-helper.h
     LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${EXTRA_LIBS}
     TEST_SOURCES test/distributed-training-test-suite.cc

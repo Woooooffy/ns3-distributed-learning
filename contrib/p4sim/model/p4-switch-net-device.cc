@@ -194,7 +194,7 @@ P4SwitchNetDevice::DoInitialize()
     NS_LOG_FUNCTION(this);
 
     // NIC / passthrough mode: no JSON configured, no P4 core needed.
-    if (m_jsonPath.empty())
+    if (m_jsonPath.empty() && m_switchArch != CUSTOM_ARCH) // JW: added custom arch check
     {
         NS_LOG_INFO("P4SwitchNetDevice (NIC mode) on node " << (m_node ? m_node->GetId() : 0));
         NetDevice::DoInitialize();
@@ -244,7 +244,7 @@ P4SwitchNetDevice::DoInitialize()
 		// JW
 		case CUSTOM_ARCH:
 				NS_LOG_DEBUG("Initializing Custom Core");
-				m_customCore = new CustomCore(this);
+				m_customCore = new CustomCore(this, m_enableSwap, m_enableTracing);
 				m_customCore->start_and_return_();
 				break; // end
 
@@ -266,6 +266,8 @@ P4SwitchNetDevice::DoDispose()
     m_psaSwitch = nullptr;
     delete m_pnaNic;
     m_pnaNic = nullptr;
+		delete m_customCore; // JW
+		m_customCore = nullptr;
 
     m_portChannels.clear();
     m_portDeviceIds.clear();
@@ -320,7 +322,7 @@ P4SwitchNetDevice::Receive(Ptr<Packet> packet, Ptr<P4SwitchNetDevice> sender)
     }
 
     // NIC / passthrough mode: no P4 core — deliver up the stack.
-    bool hasCore = (m_v1modelSwitch || m_psaSwitch || m_pnaNic);
+    bool hasCore = (m_v1modelSwitch || m_psaSwitch || m_pnaNic || m_customCore); //JW: added custom core
     if (!hasCore)
     {
         m_promiscSnifferTrace(packet);
@@ -367,6 +369,8 @@ P4SwitchNetDevice::Receive(Ptr<Packet> packet, Ptr<P4SwitchNetDevice> sender)
     case P4NIC_ARCH_PNA:
         m_pnaNic->ReceivePacket(pkt, inPort, proto, dst48);
         break;
+		case CUSTOM_ARCH: // JW
+				m_customCore->ReceivePacket(pkt, inPort, proto, dst48);
     }
 }
 
@@ -489,6 +493,10 @@ P4CoreV1model*
 P4SwitchNetDevice::GetV1ModelCore() const
 {
     return m_v1modelSwitch;
+}
+
+CustomCore* P4SwitchNetDevice::GetCustomCore() const {
+	return m_customCore;
 }
 
 void
