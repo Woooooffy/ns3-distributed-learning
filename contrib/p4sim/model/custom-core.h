@@ -11,6 +11,7 @@ namespace ns3 {
 class CustomCore : public P4SwitchCore {
 	public:
 		CustomCore(P4SwitchNetDevice* netDevice,bool enableSwap, bool enableTracing);
+		~CustomCore();
 		void AddForwardingRule(uint32_t flowId, uint32_t port);
 		void AddAddrForwarding(Address addr, uint32_t port);
 		void DisableLearning();

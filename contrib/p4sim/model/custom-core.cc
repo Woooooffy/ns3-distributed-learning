@@ -5,7 +5,13 @@
 NS_LOG_COMPONENT_DEFINE("CustomCore");
 
 namespace ns3{
-	CustomCore::CustomCore(P4SwitchNetDevice* netDevice, bool enableSwap, bool enableTracing): P4SwitchCore(netDevice, enableSwap, enableTracing){}
+	CustomCore::CustomCore(P4SwitchNetDevice* netDevice, bool enableSwap, bool enableTracing): P4SwitchCore(netDevice, enableSwap, enableTracing){
+		NS_LOG_DEBUG("Calling CustomCore constructor.");
+	}
+
+	CustomCore::~CustomCore(){
+		NS_LOG_DEBUG("Calling CustomCore destructor.");
+	}
 
 	void CustomCore::AddForwardingRule(uint32_t flowId, uint32_t port){
 		m_forwarding_table[flowId] = port;
