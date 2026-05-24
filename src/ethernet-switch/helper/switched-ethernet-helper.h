@@ -102,6 +102,8 @@ class SwitchedEthernetHelper : public PcapHelperForDevice, public AsciiTraceHelp
      * \param hostNode  The host node to connect.
      * \return Container holding the SwitchedEthernetHostDevice on \p hostNode.
      */
+
+		void Install(Ptr<P4SwitchNetDevice> swtchDev1, Ptr<P4SwitchNetDevice> swtchDev2);
     NetDeviceContainer ConnectHost(Ptr<P4SwitchNetDevice> switchDev,
                                    Ptr<Node> hostNode) const;
 

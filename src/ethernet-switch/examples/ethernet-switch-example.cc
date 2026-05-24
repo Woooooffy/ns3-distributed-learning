@@ -1,5 +1,5 @@
 #include "ns3/core-module.h"
-#include "ns3/ethernet-switch-helper.h"
+// #include "ns3/ethernet-switch-helper.h"
 
 /**
  * @file

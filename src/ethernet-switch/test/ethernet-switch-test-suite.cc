@@ -1,5 +1,5 @@
 // Include a header file from your module to test.
-#include "ns3/ethernet-switch.h"
+// #include "ns3/ethernet-switch.h"
 
 // An essential include is test.h
 #include "ns3/test.h"

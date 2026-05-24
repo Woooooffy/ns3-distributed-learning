@@ -59,6 +59,13 @@ SwitchedEthernetHelper::Install(Ptr<P4SwitchNetDevice> switchDev,
     return result;
 }
 
+void SwitchedEthernetHelper::Install(Ptr<P4SwitchNetDevice> swtchDev1, Ptr<P4SwitchNetDevice> swtchDev2){
+	NS_LOG_FUNCTION(this);
+  Ptr<SwitchedEthernetChannel> ch = m_channelFactory.Create<SwitchedEthernetChannel>();
+	swtchDev1->Attach(ch);
+	swtchDev2->Attach(ch);
+}
+
 NetDeviceContainer
 SwitchedEthernetHelper::ConnectHost(Ptr<P4SwitchNetDevice> switchDev, Ptr<Node> hostNode) const
 {
