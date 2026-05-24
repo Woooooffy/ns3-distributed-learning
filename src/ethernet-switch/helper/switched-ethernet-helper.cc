@@ -59,7 +59,7 @@ SwitchedEthernetHelper::Install(Ptr<P4SwitchNetDevice> switchDev,
     return result;
 }
 
-void SwitchedEthernetHelper::Install(Ptr<P4SwitchNetDevice> swtchDev1, Ptr<P4SwitchNetDevice> swtchDev2){
+void SwitchedEthernetHelper::ConnectSwitches(Ptr<P4SwitchNetDevice> swtchDev1, Ptr<P4SwitchNetDevice> swtchDev2){
 	NS_LOG_FUNCTION(this);
   Ptr<SwitchedEthernetChannel> ch = m_channelFactory.Create<SwitchedEthernetChannel>();
 	swtchDev1->Attach(ch);
