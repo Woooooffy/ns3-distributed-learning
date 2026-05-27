@@ -19,7 +19,7 @@
 #include <fstream>
 #include <iostream>
 
-// #define FLOW_ID_TEST 
+#define FLOW_ID_TEST 
 // for temporary testing with inserting flow ID here
 // to be disabled when such info properly encoded in xml
 

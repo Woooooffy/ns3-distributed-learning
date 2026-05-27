@@ -52,6 +52,8 @@ class NS3Writer:
 
 		self.emit("NodeContainer gpunodes;")
 		self.emit("NodeContainer swtches;")
+		self.emit("P4Helper sw_helper;")
+		self.emit("sw_helper.SetDeviceAttribute(\"EnableCustomImpl\", BooleanValue(true));")
 		self.emit("")
 
 	def _emit_main_end(self):
@@ -78,6 +80,9 @@ class NS3Writer:
 		elif insn.__class__.__name__ == "NS3MakeLinkHelper":
 			self._emit_link_helper(insn)
 
+		elif insn.__class__.__name__ == "NS3MakeSwitchHelper":
+			self._emit_switch_helper(insn)
+
 		elif insn.__class__.__name__ == "NS3InstallLink":
 			self._emit_link_install(insn)
 
@@ -85,18 +90,33 @@ class NS3Writer:
 			raise ValueError(f"Unknown instruction {insn}")
 
 	# --------------------------------------------------
-	# Link helpers
+	# Link and switch helpers
 	# --------------------------------------------------
+
+	def _emit_switch_helper(self, insn):
+		self.emit("sw_helper.SetDeviceAttribute(\"Mtu\", UintergerValue({insn.mtu});")
+		for id in insn.switch_ids:
+			self.emit("NetDeviceContainer sw_dev{id} = sw_helper.Install(swtchs.Get({id}));")
+			self.emit("Ptr<P4SwitchNetDevice> sw{id} = DynamicCast<P4SwitchNetDevice>(sw_dev{id}.Get(0));")
 
 	def _emit_link_helper(self, insn):
 		hid = insn.id
 		delay_val, delay_unit = insn.delay
 		bw_val, bw_unit = insn.data_rate
+		mtu = insn.mtu
 
-		self.emit(f"CsmaHelper csma{hid};")
-		self.emit(f"csma{hid}.SetDeviceAttribute(\"Mtu\", UintegerValue({insn.mtu}));")
-		self.emit(f'csma{hid}.SetChannelAttribute("Delay", StringValue("{delay_val}{delay_unit}"));')
-		self.emit(f'csma{hid}.SetChannelAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
+		match insn.type:
+			case "eth":
+				helper_name = "SwitchedEthernet"
+			case "default":
+				helper_name = "Csma"
+			case _:
+				raise RuntimeError(f"Unrecognized link type {insn.type}.")
+
+		self.emit(f"{helper_name}Helper link_helper{hid};")
+		self.emit(f"link_helper{hid}.SetDeviceAttribute(\"Mtu\", UintegerValue({insn.mtu}));")
+		self.emit(f'link_helper{hid}.SetChannelAttribute("Delay", StringValue("{delay_val}{delay_unit}"));')
+		self.emit(f'link_helper{hid}.SetChannelAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
 		self.emit("")
 
 	# --------------------------------------------------

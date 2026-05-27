@@ -36,9 +36,15 @@ class NS3MakeLinkHelper(NS3Insn):
 			self.mtu = attrs["mtu"]
 		else:
 			self.mtu = 9000
+		self.type = attrs["type"]
 	
 	def __repr__(self) -> str:
 		return f"Create NS3 link helper {self.id}: latency {self.delay} bandwidth {self.data_rate}"
+
+class NS3MakeSwitchHelper(NS3Insn):
+	def __init__(self, switch_ids: list[int], **attrs: Any):
+		self.switch_ids = switch_ids
+		self.mtu = attrs["mtu"]
 
 class NS3InstallLink(NS3Insn):
 	def __init__(self, src: str, dst: str, helper_id: int):
@@ -59,13 +65,17 @@ class NS3CodeGenerator():
 		self.switch_counter: int = 0
 		self.link_helpers: dict[tuple[Any], int] = {}
 		self.link_helper_counter = 0
+		self.switch_helpers: dict[tuple[Any], list[int]] = {}
 
 	def Generate(self) -> None:
 		self.GenerateModule(self.modules["main"])
 		insns = [NS3MakeGPUs(self.gpu_counter), NS3MakeSwitches(self.switch_counter)]
 		for tup, id in self.link_helpers.items():
-			args = {"latency": tup[0], "bandwidth": tup[1], "mtu": tup[2]}
+			args = {"latency": tup[0], "bandwidth": tup[1], "mtu": tup[2], "type": tup[3]}
 			insns.append(NS3MakeLinkHelper(id, **args))
+		for tup, ids in self.switch_helpers.items():
+			args = {"mtu": tup[0]}
+			insns.append(NS3MakeSwitchHelper(ids, **args));
 		self.insns = insns + self.insns
 
 	def GenerateModule(self, module: Block, *args: Any) -> None:	
@@ -107,6 +117,12 @@ class NS3CodeGenerator():
 			case "switch":
 				self.switches[name] = self.switch_counter
 				self.switch_counter += 1
+				#TODO proper modeling of switch attributes
+				mtu = 9000# fixed default for now
+				attr = (mtu,)
+				if self.switch_helpers.get(attr) is None:
+					self.switch_helpers[attr] = []
+				self.switch_helpers[attr].append(self.switches[name])
 			case _:
 				raise RuntimeError(f"Unrecognized node type {type}")
 	
@@ -121,8 +137,14 @@ class NS3CodeGenerator():
 		if pre != "":
 			src = pre + "_" + src
 			dst = pre + "_" + dst
+		# assumes nodes declared before building link
+		# TODO better type modeling
+		if src in self.switches or dst in self.switches:
+			type = "eth"
+		else:
+			type = "default"
 		mtu = insn.attrs["mtu"] if "mtu" in insn.attrs else 9000
-		attr = (insn.attrs["latency"], insn.attrs["bandwidth"], mtu) 
+		attr = (insn.attrs["latency"], insn.attrs["bandwidth"], mtu, type) 
 		helper = self.link_helpers.get(attr)
 		if helper is None:
 			# add this to list of helpers to be built
