@@ -36,12 +36,19 @@ NS_LOG_COMPONENT_DEFINE("SwitchedEthernetHelper");
 SwitchedEthernetHelper::SwitchedEthernetHelper()
 {
     m_channelFactory.SetTypeId("ns3::SwitchedEthernetChannel");
+		m_deviceFactory.SetTypeId("ns3::SwitchedEthernetHostDevice");
 }
 
 void
 SwitchedEthernetHelper::SetChannelAttribute(const std::string& name, const AttributeValue& value)
 {
     m_channelFactory.Set(name, value);
+}
+
+void
+SwitchedEthernetHelper::SetDeviceAttribute(const std::string& name, const AttributeValue& value)
+{
+    m_deviceFactory.Set(name, value);
 }
 
 NetDeviceContainer
@@ -87,7 +94,7 @@ SwitchedEthernetHelper::InstallPortPriv(Ptr<P4SwitchNetDevice> switchDev,
     switchDev->Attach(ch);
 
     // Host side: plain Ethernet NIC.
-    Ptr<SwitchedEthernetHostDevice> hostDev = CreateObject<SwitchedEthernetHostDevice>();
+    Ptr<SwitchedEthernetHostDevice> hostDev = m_deviceFactory.Create<SwitchedEthernetHostDevice>();
     hostDev->SetAddress(Mac48Address::Allocate());
     hostNode->AddDevice(hostDev);
     hostDev->Attach(ch);

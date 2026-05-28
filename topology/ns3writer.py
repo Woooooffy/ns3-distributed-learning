@@ -26,7 +26,7 @@ class NS3Writer:
 		for insn in self.insns:
 			self._handle_insn(insn)
 
-		self._emit_bridge_setup()
+		self._emit_forwarding_setup()	
 		self._emit_gpu_setup()
 		self._emit_main_end()
 
@@ -41,7 +41,8 @@ class NS3Writer:
 		self.emit('#include "ns3/core-module.h"')
 		self.emit('#include "ns3/network-module.h"')
 		self.emit('#include "ns3/csma-module.h"')
-		self.emit('#include "ns3/bridge-module.h"')
+		self.emit('#include "ns3/ethernet-switch-module.h"')
+		self.emit('#include "ns3/distributed-training-module.h"')
 		self.emit("")
 		self.emit("using namespace ns3;")
 		self.emit("")
@@ -94,10 +95,11 @@ class NS3Writer:
 	# --------------------------------------------------
 
 	def _emit_switch_helper(self, insn):
-		self.emit("sw_helper.SetDeviceAttribute(\"Mtu\", UintergerValue({insn.mtu});")
+		self.emit(f"sw_helper.SetDeviceAttribute(\"Mtu\", UintegerValue({insn.mtu}));")
 		for id in insn.switch_ids:
-			self.emit("NetDeviceContainer sw_dev{id} = sw_helper.Install(swtchs.Get({id}));")
-			self.emit("Ptr<P4SwitchNetDevice> sw{id} = DynamicCast<P4SwitchNetDevice>(sw_dev{id}.Get(0));")
+			self.emit(f"NetDeviceContainer sw_dev{id} = sw_helper.Install(swtches.Get({id}));")
+			self.emit(f"Ptr<P4SwitchNetDevice> sw{id} = DynamicCast<P4SwitchNetDevice>(sw_dev{id}.Get(0));")
+		self.emit("")
 
 	def _emit_link_helper(self, insn):
 		hid = insn.id
@@ -137,36 +139,117 @@ class NS3Writer:
 
 		hid = insn.link_helper
 
+		# --------------------------------------------------
+		# GPU <-> GPU : still CSMA
+		# --------------------------------------------------
 
-		self.emit(f"NodeContainer nc{hid}_{self.container_uid};")
-		self.emit(f"nc{hid}_{self.container_uid}.Add({src_expr});")
-		self.emit(f"nc{hid}_{self.container_uid}.Add({dst_expr});")
-		container_expr = f"devs{hid}_{self.container_uid}"
-		self.emit(f"NetDeviceContainer {container_expr} = csma{hid}.Install(nc{hid}_{self.container_uid});")
-		self.emit("")
+		if src_type == "gpu" and dst_type == "gpu":
 
-		# Track mac addr of installed devices
-		self.container_map[(insn.src, insn.dst)] = container_expr 
+			self.emit(f"NodeContainer nc{hid}_{self.container_uid};")
+			self.emit(f"nc{hid}_{self.container_uid}.Add({src_expr});")
+			self.emit(f"nc{hid}_{self.container_uid}.Add({dst_expr});")
 
-		# Track switch ports for bridging later
-		if src_type == "switch":
-			self._record_switch_port(insn.src, f"devs{hid}_{self.container_uid}.Get(0)")
-		if dst_type == "switch":
-			self._record_switch_port(insn.dst, f"devs{hid}_{self.container_uid}.Get(1)")	
+			container_expr = f"devs{hid}_{self.container_uid}"
 
-		# GPU node programming
-		if src_type == "gpu":
-			if dst_type == "gpu":
-				self._emit_push_send_device(src_expr, insns.dst, f"devs{hid}_{self.container_uid}.Get(0)")
-				self._emit_push_recv_device(dst_expr, insns.src, f"devs{hid}_{self.container_uid}.Get(1)")
-			elif dst_type == "switch":
-				self._emit_loop_push_send_device(src_expr, insn.src, f"devs{hid}_{self.container_uid}.Get(0)")
+			self.emit(
+				f"NetDeviceContainer {container_expr} = "
+				f"link_helper{hid}.Install(nc{hid}_{self.container_uid});"
+			)
+
+			self.emit("")
+
+			self.container_map[(insn.src, insn.dst)] = container_expr
+
+			self._emit_push_send_device(
+				src_expr,
+				insn.dst,
+				f"{container_expr}.Get(0)"
+			)
+
+			self._emit_push_recv_device(
+				dst_expr,
+				insn.src,
+				f"{container_expr}.Get(1)"
+			)
+
+		# --------------------------------------------------
+		# GPU <-> Switch
+		# --------------------------------------------------
+
+		elif src_type == "gpu" and dst_type == "switch":
+
+			container_expr = f"devs{hid}_{self.container_uid}"
+
+			sw_idx = self.switches[insn.dst]
+
+			self.emit(
+				f"NetDeviceContainer {container_expr} = "
+				f"link_helper{hid}.Install(sw{sw_idx}, {src_expr});"
+			)
+
+			self.emit("")
+
+			self._emit_loop_push_peer_device(
+				src_expr,
+				insn.src,
+				f"{container_expr}.Get(0)"
+			)
+
+			self._record_host_attachment(
+				insn.dst,
+				insn.src,
+				f"{container_expr}.Get(0)"
+			)
+
+		# --------------------------------------------------
+		# Switch <-> GPU
+		# --------------------------------------------------
+
 		elif src_type == "switch" and dst_type == "gpu":
-			self._emit_loop_push_recv_device(dst_expr, insn.dst, f"devs{hid}_{self.container_uid}.Get(1)")
 
+			container_expr = f"devs{hid}_{self.container_uid}"
+
+			sw_idx = self.switches[insn.src]
+
+			self.emit(
+				f"NetDeviceContainer {container_expr} = "
+				f"link_helper{hid}.Install(sw{sw_idx}, {dst_expr});"
+			)
+
+			self.emit("")
+
+			self._emit_loop_push_peer_device(
+				dst_expr,
+				insn.dst,
+				f"{container_expr}.Get(0)"
+			)
+
+			self._record_host_attachment(
+				insn.src,
+				insn.dst,
+				f"{container_expr}.Get(0)"
+			)
+
+		# --------------------------------------------------
+		# Switch <-> Switch
+		# --------------------------------------------------
+
+		elif src_type == "switch" and dst_type == "switch":
+
+			src_idx = self.switches[insn.src]
+			dst_idx = self.switches[insn.dst]
+
+			self.emit(
+				f"link_helper{hid}.ConnectSwitches(sw{src_idx}, sw{dst_idx});"
+			)
+
+			self.emit("")
+
+		else:
+			raise RuntimeError("Unsupported link type")
 
 		self.container_uid += 1
-	
+		
 	def _emit_push_send_device(self, src_expr, dst_name, dev_expr):
 		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerDevice({self.gpus[dst_name]}, {dev_expr});")
 	
@@ -177,55 +260,65 @@ class NS3Writer:
 		dev_expr = f"{self.container_map[src_name, dst_name]}.Get(1)"
 		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerAddr({self.gpus[dst_name]}, ({dev_expr})->GetAddress());")
 	
-	def _emit_loop_push_send_device(self, src_expr, src_name, dev_expr):
+	def _emit_loop_push_peer_device(self, gpu_expr, gpu_name, dev_expr):
 		self.emit(f"for (int i = 0; i < {len(self.gpus)}; ++i)" + "{")
 		self.indent += 1
-		self.emit(f"if (i != {self.gpus[src_name]})" + "{")
+
+		self.emit(f"if (i != {self.gpus[gpu_name]})" + "{")
 		self.indent += 1
-		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerDevice(i, {dev_expr});")
-		self.indent -= 1
-		self.emit("}")
+
+		self.emit(
+			f"DynamicCast<GPU>({gpu_expr})->PushSendPeerDevice(i, {dev_expr});"
+		)
+
+		self.emit(
+			f"DynamicCast<GPU>({gpu_expr})->PushRecvPeerDevice(i, {dev_expr});"
+		)
+
 		self.indent -= 1
 		self.emit("}")
 
-	def _emit_loop_push_recv_device(self, dst_expr, dst_name, dev_expr):
-		self.emit(f"for (int i = 0; i < {len(self.gpus)}; ++i)" + "{")
-		self.indent += 1
-		self.emit(f"if (i != {self.gpus[dst_name]})" + "{")
-		self.indent += 1
-		self.emit(f"DynamicCast<GPU>({dst_expr})->PushRecvPeerDevice(i, {dev_expr});")
 		self.indent -= 1
 		self.emit("}")
-		self.indent -= 1
-		self.emit("}")
-
+		
+		self.emit("")
 	# --------------------------------------------------
-	# Bridge handling
+	# Switch handling
 	# --------------------------------------------------
 
-	def _record_switch_port(self, sw_name, dev_expr):
-		if not hasattr(self, "switch_ports"):
-			self.switch_ports = {}
-		self.switch_ports.setdefault(sw_name, []).append(dev_expr)
+	def _record_host_attachment(self, switch_name, gpu_name, dev_expr):
+		if not hasattr(self, "host_attachments"):
+			self.host_attachments = {}
 
-	def _emit_bridge_setup(self):
-		if not hasattr(self, "switch_ports"):
+		self.host_attachments.setdefault(switch_name, []).append(
+			(gpu_name, dev_expr)
+		)
+
+	def _emit_forwarding_setup(self):
+		return
+		if not hasattr(self, "host_attachments"):
 			return
 
 		self.emit("")
-		self.emit("// Bridge setup for switches")
+		self.emit("// Switch forwarding tables")
 
-		for sw, ports in self.switch_ports.items():
-			sw_idx = self.switches[sw]
+		for sw_name, hosts in self.host_attachments.items():
 
-			self.emit(f"NetDeviceContainer bridgePorts_{sw};")
-			for p in ports:
-				self.emit(f"bridgePorts_{sw}.Add({p});")
+			sw_idx = self.switches[sw_name]
 
-			self.emit(f"SmartSwitchHelper bridge_{sw};")
-			self.emit(f"bridge_{sw}.Install(swtches.Get({sw_idx}), bridgePorts_{sw});")
+			for port_idx, (gpu_name, dev_expr) in enumerate(hosts):
+
+				for other_gpu_name in self.gpus.keys():
+
+					self.emit(
+						f"sw{sw_idx}->GetCustomImpl()->AddAddrForwarding("
+						f"DynamicCast<GPU>(gpunodes.Get({self.gpus[other_gpu_name]}))"
+						f"->GetAddress(), "
+						f"{port_idx}"
+						f");"
+					)
+
 			self.emit("")
-	
 	
 	# --------------------------------------------------
 	# GPU handling

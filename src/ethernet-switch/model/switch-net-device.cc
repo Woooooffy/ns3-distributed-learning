@@ -271,7 +271,7 @@ P4SwitchNetDevice::Receive(Ptr<Packet> packet, Ptr<P4SwitchNetDevice> sender)
     uint32_t inPort = GetPortNumber(sender);
     if (inPort == UINT32_MAX)
     {
-        NS_LOG_WARN("Receive: sender not found in port list — dropping");
+        NS_LOG_WARN("Receive: sender not found in port list: dropping");
         return;
     }
 

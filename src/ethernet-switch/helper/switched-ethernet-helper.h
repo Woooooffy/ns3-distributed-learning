@@ -76,6 +76,9 @@ class SwitchedEthernetHelper : public PcapHelperForDevice, public AsciiTraceHelp
      */
     void SetChannelAttribute(const std::string& name, const AttributeValue& value);
 
+		void SetDeviceAttribute(const std::string& name, const AttributeValue& value);
+
+
     // -----------------------------------------------------------------------
     // Install
     // -----------------------------------------------------------------------
@@ -125,6 +128,7 @@ class SwitchedEthernetHelper : public PcapHelperForDevice, public AsciiTraceHelp
                              bool explicitFilename) override;
 
     ObjectFactory m_channelFactory; ///< SwitchedEthernetChannel factory
+		ObjectFactory m_deviceFactory;
 };
 
 } // namespace ns3

@@ -24,12 +24,12 @@ namespace ns3{
 	}
 
 	void CustomSwitchImpl::AddForwardingRule(uint32_t flowId, uint32_t port){
+		NS_LOG_DEBUG("Adding fowarding rule: " << flowId << "; " << port);
 		m_forwarding_table[flowId] = port;
 	}
 
 	void CustomSwitchImpl::AddAddrForwarding(Address addr, uint32_t port){
-		NS_LOG_INFO("Adding forwarding entry: " << addr << "; " << port);
-		NS_LOG_INFO("Forwarding table size: " << m_addr_forwarding_table.size());
+		NS_LOG_DEBUG("Adding forwarding entry: " << addr << "; " << port);	
 		m_addr_forwarding_table[addr] = port;
 	}
 
@@ -39,6 +39,7 @@ namespace ns3{
 	
 	void CustomSwitchImpl::SetSwitchNetDevice(Ptr<P4SwitchNetDevice> netdev){
 		m_switchNetDevice = netdev; 
+		if (m_switchNetDevice != nullptr) NS_LOG_DEBUG("Impl has dev set.");
 	}
 
 	void CustomSwitchImpl::SetSharedTraceMap(std::map<uint32_t, std::vector<int>>* map){
@@ -65,17 +66,23 @@ namespace ns3{
 		// FlowId forwarding
 		if (protocol == COLLECTIVES_PROTOCOL){	
 			// Smart switch behavior for collectives
+			// remove eth header
+			Ptr<Packet> pkt = packetIn->Copy();
+			EthernetHeader eth;
+			pkt->RemoveHeader(eth);
 			MscclHeader hdr;
-			if (packetIn->GetSize() < hdr.GetSerializedSize()) NS_FATAL_ERROR("Received packet with incomplete header.");
-			packetIn->PeekHeader(hdr);
+			if (pkt->GetSize() < hdr.GetSerializedSize()) NS_FATAL_ERROR("Received packet with incomplete header.");
+			pkt->PeekHeader(hdr);
+			NS_LOG_DEBUG("Attempt to match flowId " << hdr.GetFlowId());
 			if (auto search = m_forwarding_table.find(hdr.GetFlowId()); search != m_forwarding_table.end()){
 			  int port = static_cast<int>(search->second);	
-				if (port != inPort){
-					if (m_shared_trace) (*m_shared_trace)[packetIn->GetUid()].push_back(m_switchNetDevice->GetNode()->GetId());	
+//				if (port != inPort){
+					NS_LOG_DEBUG("FlowId match found. Sending out port " << port);
+					if (m_shared_trace) (*m_shared_trace)[packetIn->GetUid()].push_back(m_switchNetDevice->GetNode()->GetId());
 					m_switchNetDevice->SendNs3Packet(packetIn, port, protocol, destination);
 					return;
-				}
-				else NS_LOG_WARN("FlodId match instructs forwarding packet out of in-port.");
+	//			}
+//				else NS_LOG_WARN("FlodId match instructs forwarding packet out of in-port.");
 			}
 		}
 	

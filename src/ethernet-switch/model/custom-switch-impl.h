@@ -29,7 +29,7 @@ class CustomSwitchImpl : public Object {
 			// write to a tracing table shared between all switches
 			// for routes that are pre-programmed (not learned)
 			std::map<Address, uint32_t> m_addr_forwarding_table; // fallback for learning or default
-			std::map<uint32_t, std::vector<int>>* m_shared_trace;
+			std::map<uint32_t, std::vector<int>>* m_shared_trace = nullptr;
 			std::unordered_set<uint32_t> m_seen_packets;
 }; // CustomSwitchImpl
 }//namespace
