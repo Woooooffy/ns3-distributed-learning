@@ -209,7 +209,7 @@ P4SwitchNetDevice::Attach(Ptr<SwitchedEthernetChannel> channel)
 // ---------------------------------------------------------------------------
 
 void
-P4SwitchNetDevice::Receive(Ptr<Packet> packet, Ptr<P4SwitchNetDevice> sender)
+P4SwitchNetDevice::Receive(Ptr<Packet> packet, Ptr<NetDevice> sender)
 {
     NS_LOG_FUNCTION_NOARGS();
     NS_LOG_DEBUG("UID=" << packet->GetUid());
@@ -382,7 +382,7 @@ P4SwitchNetDevice::GetPortChannel(uint32_t n) const
 }
 
 uint32_t
-P4SwitchNetDevice::GetPortNumber(Ptr<P4SwitchNetDevice> sender) const
+P4SwitchNetDevice::GetPortNumber(Ptr<NetDevice> sender) const
 {
     // Find the port whose far end is `sender`.
     for (uint32_t i = 0; i < m_portChannels.size(); ++i)
@@ -391,7 +391,7 @@ P4SwitchNetDevice::GetPortNumber(Ptr<P4SwitchNetDevice> sender) const
         uint32_t otherSlot = (mySlot == 0) ? 1 : 0;
 
         if (m_portChannels[i]->GetNDevices() > otherSlot &&
-            m_portChannels[i]->GetP4SwitchDevice(otherSlot) == sender)
+            m_portChannels[i]->GetDevice(otherSlot) == sender)
         {
             return i;
         }

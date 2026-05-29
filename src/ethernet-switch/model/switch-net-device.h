@@ -123,7 +123,7 @@ class P4SwitchNetDevice : public NetDevice
      * \param packet Full Ethernet frame.
      * \param sender The device that transmitted the frame.
      */
-    void Receive(Ptr<Packet> packet, Ptr<P4SwitchNetDevice> sender);
+    void Receive(Ptr<Packet> packet, Ptr<NetDevice> sender);
 
     // -----------------------------------------------------------------------
     // Egress from P4 pipeline (called by pipeline cores)
@@ -160,7 +160,7 @@ class P4SwitchNetDevice : public NetDevice
     Ptr<SwitchedEthernetChannel> GetPortChannel(uint32_t n) const;
 
     /** \return Port index of \p sender, or UINT32_MAX if not found. */
-    uint32_t GetPortNumber(Ptr<P4SwitchNetDevice> sender) const;
+    uint32_t GetPortNumber(Ptr<NetDevice> sender) const;
 
     // -----------------------------------------------------------------------
     // P4 core accessor

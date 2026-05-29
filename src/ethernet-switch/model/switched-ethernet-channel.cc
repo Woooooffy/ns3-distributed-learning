@@ -280,7 +280,7 @@ SwitchedEthernetChannel::TransmitEnd(uint32_t srcId)
         {
             // P4 switch device: pass packet + sender pointer.
             Ptr<P4SwitchNetDevice> dst = m_deviceList[i].devicePtr;
-            Ptr<P4SwitchNetDevice> sender = m_deviceList[m_currentSrc[srcId]].devicePtr;
+            Ptr<NetDevice> sender = m_deviceList[m_currentSrc[srcId]].GetNetDevice();
             Simulator::ScheduleWithContext(dst->GetNode()->GetId(),
                                            m_delay,
                                            &P4SwitchNetDevice::Receive,

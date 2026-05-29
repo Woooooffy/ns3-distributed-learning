@@ -76,13 +76,13 @@ namespace ns3{
 			NS_LOG_DEBUG("Attempt to match flowId " << hdr.GetFlowId());
 			if (auto search = m_forwarding_table.find(hdr.GetFlowId()); search != m_forwarding_table.end()){
 			  int port = static_cast<int>(search->second);	
-//				if (port != inPort){
+				if (port != inPort){
 					NS_LOG_DEBUG("FlowId match found. Sending out port " << port);
 					if (m_shared_trace) (*m_shared_trace)[packetIn->GetUid()].push_back(m_switchNetDevice->GetNode()->GetId());
 					m_switchNetDevice->SendNs3Packet(packetIn, port, protocol, destination);
 					return;
-	//			}
-//				else NS_LOG_WARN("FlodId match instructs forwarding packet out of in-port.");
+				}
+				else NS_LOG_WARN("FlodId match instructs forwarding packet out of in-port.");
 			}
 		}
 	
