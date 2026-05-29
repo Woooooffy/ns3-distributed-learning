@@ -247,7 +247,9 @@ SwitchedEthernetChannel::TransmitEnd(uint32_t srcId)
     NS_LOG_FUNCTION(this << srcId);
     NS_ASSERT(m_State[srcId] == TRANSMITTING_STATE);
 
-    m_State[srcId] = PROPAGATING_STATE;
+//    m_State[srcId] = PROPAGATING_STATE;
+    m_State[srcId] = IDLE_STATE;
+
     NS_LOG_LOGIC("Slot " << srcId << " -> PROPAGATING_STATE");
 
     if (!IsActive(m_currentSrc[srcId]))
@@ -291,17 +293,17 @@ SwitchedEthernetChannel::TransmitEnd(uint32_t srcId)
     }
 
     // Release the wire after propagation.
-    Simulator::Schedule(m_delay, &SwitchedEthernetChannel::PropagationCompleteEvent, this, srcId);
+//    Simulator::Schedule(m_delay, &SwitchedEthernetChannel::PropagationCompleteEvent, this, srcId);
     return true;
 }
 
 void
 SwitchedEthernetChannel::PropagationCompleteEvent(uint32_t srcId)
 {
-    NS_LOG_FUNCTION(this << srcId);
-    NS_ASSERT(m_State[srcId] == PROPAGATING_STATE);
-    m_State[srcId] = IDLE_STATE;
-    NS_LOG_LOGIC("Slot " << srcId << " -> IDLE_STATE");
+ //   NS_LOG_FUNCTION(this << srcId);
+ //   NS_ASSERT(m_State[srcId] == PROPAGATING_STATE);
+ //   m_State[srcId] = IDLE_STATE;
+ //   NS_LOG_LOGIC("Slot " << srcId << " -> IDLE_STATE");
 }
 
 // ---------------------------------------------------------------------------

@@ -85,6 +85,7 @@ P4Helper::InstallSwitchPriv(Ptr<Node> node) const
 			Ptr<CustomSwitchImpl> impl = CreateObject<CustomSwitchImpl>();
 			impl->SetSwitchNetDevice(sw);
 			sw->SetCustomImpl(impl);
+			impl->SetQueueType(sw->GetQueueTypeId());
 		}
     node->AddDevice(sw);
     NS_LOG_DEBUG("Switch device installed on node " << node->GetId());

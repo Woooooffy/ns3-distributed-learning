@@ -145,9 +145,9 @@ class P4SwitchNetDevice : public NetDevice
      * Transmission timing is computed from the channel's DataRate.
      */
     void SendNs3Packet(Ptr<Packet> packetOut,
-                       int outPort,
+                       int outPort/*,
                        uint16_t protocol,
-                       const Address& destination);
+                       const Address& destination*/);
 
     // -----------------------------------------------------------------------
     // Port accessors
@@ -181,6 +181,8 @@ class P4SwitchNetDevice : public NetDevice
 		void SetCustomImpl(Ptr<CustomSwitchImpl> impl);
 
 		Ptr<CustomSwitchImpl> GetCustomImpl();
+
+		std::string GetQueueTypeId();
 
     // -----------------------------------------------------------------------
     // NetDevice interface
@@ -237,7 +239,7 @@ class P4SwitchNetDevice : public NetDevice
      * \brief Transmit \p packet on \p channel using slot \p devId.
      *        Schedules TransmitEnd() based on the channel's DataRate.
      */
-    void TransmitOn(Ptr<SwitchedEthernetChannel> channel, uint32_t devId, Ptr<Packet> packet);
+    void TransmitOn(Ptr<SwitchedEthernetChannel> channel, uint32_t devId, Ptr<Packet> packet, uint32_t outPort = UINT32_MAX);
 
     // -----------------------------------------------------------------------
     // P4 switch configuration
@@ -262,6 +264,7 @@ class P4SwitchNetDevice : public NetDevice
     Ptr<Node> m_node;
     uint32_t m_ifIndex;
     uint16_t m_mtu;
+		std::string m_queueTypeId;
 
     /**
      * Channels attached via Attach() in order.

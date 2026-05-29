@@ -76,7 +76,7 @@ enum FullDuplexWireState
 {
     IDLE_STATE,         ///< No packet is being transmitted.
     TRANSMITTING_STATE, ///< A packet is being written onto the wire.
-    PROPAGATING_STATE   ///< Packet is propagating to the far end.
+//    PROPAGATING_STATE   ///< Packet is propagating to the far end.
 };
 
 // ---------------------------------------------------------------------------

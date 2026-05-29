@@ -96,6 +96,12 @@ P4SwitchNetDevice::GetTypeId()
                 MakeUintegerAccessor(&P4SwitchNetDevice::SetMtu, &P4SwitchNetDevice::GetMtu),
                 MakeUintegerChecker<uint16_t>())
 
+						.AddAttribute("QueueTypeId",
+              "TypeId of the queue type in use",
+              StringValue("ns3::DropTailQueue<Packet>"),
+              MakeStringAccessor(&P4SwitchNetDevice::m_queueTypeId),
+              MakeStringChecker())
+
             .AddTraceSource("SwitchEvent",
                             "Fired when the P4 pipeline emits a switch event.",
                             MakeTraceSourceAccessor(&P4SwitchNetDevice::m_switchEvent),
@@ -200,6 +206,11 @@ P4SwitchNetDevice::Attach(Ptr<SwitchedEthernetChannel> channel)
     m_portChannels.push_back(channel);
     m_portDeviceIds.push_back(static_cast<uint32_t>(devId));
 
+
+		if (m_hasImpl){
+			m_impl->AddPort();
+		}
+
     NS_LOG_INFO("Attached to channel as port " << (m_portChannels.size() - 1) << " (channel slot "
                                                << devId << ")");
 }
@@ -298,14 +309,14 @@ P4SwitchNetDevice::SendPacket(Ptr<Packet> packetOut,
                               uint16_t protocol,
                               const Address& destination)
 {
-    SendNs3Packet(packetOut, outPort, protocol, destination);
+    SendNs3Packet(packetOut, outPort/*, protocol, destination*/);
 }
 
 void
 P4SwitchNetDevice::SendNs3Packet(Ptr<Packet> packetOut,
-                                 int outPort,
-                                 uint16_t /*protocol*/,
-                                 const Address& /*destination*/)
+                                 int outPort/*,
+                                 uint16_t protocol,
+                                 const Address& destination*/)
 {
     NS_LOG_DEBUG("SendNs3Packet: port=" << outPort);
 
@@ -339,13 +350,13 @@ P4SwitchNetDevice::SendNs3Packet(Ptr<Packet> packetOut,
     // Transmit it directly onto the channel.
     Ptr<SwitchedEthernetChannel> ch = m_portChannels[static_cast<size_t>(outPort)];
     uint32_t devId = m_portDeviceIds[static_cast<size_t>(outPort)];
-    TransmitOn(ch, devId, packetOut);
+    TransmitOn(ch, devId, packetOut, static_cast<uint32_t>(outPort));
 }
 
 void
 P4SwitchNetDevice::TransmitOn(Ptr<SwitchedEthernetChannel> channel,
                               uint32_t devId,
-                              Ptr<Packet> packet)
+                              Ptr<Packet> packet, uint32_t outPort)
 {
     if (!channel->TransmitStart(packet, devId))
     {
@@ -359,6 +370,11 @@ P4SwitchNetDevice::TransmitOn(Ptr<SwitchedEthernetChannel> channel,
     Time txTime = bps.CalculateBytesTxTime(packet->GetSize());
 
     Simulator::Schedule(txTime, &SwitchedEthernetChannel::TransmitEnd, channel, devId);
+
+		// also trigger the port's EgressComplete
+		if (m_hasImpl && outPort != UINT32_MAX){
+			Simulator::Schedule(txTime, &CustomSwitchImpl::PortEgressComplete, m_impl, outPort);
+		}
 }
 
 // ---------------------------------------------------------------------------
@@ -426,6 +442,10 @@ void P4SwitchNetDevice::SetCustomImpl(Ptr<CustomSwitchImpl> impl){
 
 Ptr<CustomSwitchImpl> P4SwitchNetDevice::GetCustomImpl(){
 	return m_impl;
+}
+
+std::string P4SwitchNetDevice::GetQueueTypeId(){
+	return m_queueTypeId;
 }
 
 

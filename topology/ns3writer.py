@@ -184,7 +184,7 @@ class NS3Writer:
 
 			self.emit(
 				f"NetDeviceContainer {container_expr} = "
-				f"link_helper{hid}.Install(sw{sw_idx}, {src_expr});"
+				f"link_helper{hid}.ConnectHost(sw{sw_idx}, {src_expr});"
 			)
 
 			self.emit("")
@@ -213,7 +213,7 @@ class NS3Writer:
 
 			self.emit(
 				f"NetDeviceContainer {container_expr} = "
-				f"link_helper{hid}.Install(sw{sw_idx}, {dst_expr});"
+				f"link_helper{hid}.ConnectHost(sw{sw_idx}, {dst_expr});"
 			)
 
 			self.emit("")
