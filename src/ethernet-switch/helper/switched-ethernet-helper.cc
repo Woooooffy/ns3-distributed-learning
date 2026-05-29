@@ -37,6 +37,7 @@ SwitchedEthernetHelper::SwitchedEthernetHelper()
 {
     m_channelFactory.SetTypeId("ns3::SwitchedEthernetChannel");
 		m_deviceFactory.SetTypeId("ns3::SwitchedEthernetHostDevice");
+		m_queueFactory.SetTypeId("ns3::DropTailQueue<Packet>");
 }
 
 void
@@ -98,6 +99,7 @@ SwitchedEthernetHelper::InstallPortPriv(Ptr<P4SwitchNetDevice> switchDev,
     hostDev->SetAddress(Mac48Address::Allocate());
     hostNode->AddDevice(hostDev);
     hostDev->Attach(ch);
+		hostDev->SetQueue(m_queueFactory.Create<Queue<Packet>>());
 
     NS_LOG_DEBUG("Port " << (switchDev->GetNPorts() - 1)
                  << " connected to host node " << hostNode->GetId());

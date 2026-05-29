@@ -129,6 +129,7 @@ class SwitchedEthernetHelper : public PcapHelperForDevice, public AsciiTraceHelp
 
     ObjectFactory m_channelFactory; ///< SwitchedEthernetChannel factory
 		ObjectFactory m_deviceFactory;
+		ObjectFactory m_queueFactory;
 };
 
 } // namespace ns3

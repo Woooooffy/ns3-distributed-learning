@@ -77,6 +77,7 @@ namespace ns3 {
 	}
 
 	void MscclChannel::SendCallback(Ptr<Socket> sock, uint32_t bytes){
+		NS_LOG_FUNCTION(this);
 		uint32_t sendSize = bytes;
 		std::queue<PendingTransfer>& sendQueue = m_pendingSends.at(sock);
 		while (sendSize > 0 && !sendQueue.empty()){
@@ -94,6 +95,7 @@ namespace ns3 {
 	}
 
 	void MscclChannel::RecvCallback(Ptr<Socket> sock){
+		NS_LOG_FUNCTION(this);
 		while (sock->GetRxAvailable() > 0){
 			Address from;
       Ptr<Packet> packet = sock->RecvFrom(from);
@@ -114,11 +116,10 @@ namespace ns3 {
 			if (peerId != hdr.GetSrcGpu() || m_app->GetNode()->GetId() != hdr.GetDstGpu()){
 					// debug prints for now
 					// TODO: forwarding not yet handled
-				NS_LOG_INFO("Ignoring packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expecting " << peerId << " to " << m_app->GetNode()->GetId());
+				// happens rn because all sockets on the node receives and forwards up.
+				// to be fixed
+				NS_LOG_DEBUG("Ignoring packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expecting " << peerId << " to " << m_app->GetNode()->GetId());
 				break;
-			}
-			if (hdr.GetSrcGpu() == 1 && hdr.GetDstGpu() == 4){
-				NS_LOG_INFO("Debug print: packet from 1 to 4");
 			}
 			if (m_id != hdr.GetChannel()){
 				// expected to happen sometimes

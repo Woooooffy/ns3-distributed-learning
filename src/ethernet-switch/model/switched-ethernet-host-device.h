@@ -23,6 +23,7 @@
 #include "ns3/mac48-address.h"
 #include "ns3/net-device.h"
 #include "ns3/traced-callback.h"
+#include "ns3/queue.h"
 
 namespace ns3
 {
@@ -96,12 +97,17 @@ class SwitchedEthernetHostDevice : public NetDevice
                   const Address& source,
                   const Address& dest,
                   uint16_t protocolNumber) override;
+		void TryTransmit();
+		void TransmitStart(Ptr<Packet> pkt);
+		void TransmitEnd();
     Ptr<Node> GetNode() const override;
     void SetNode(Ptr<Node> node) override;
     bool NeedsArp() const override;
     void SetReceiveCallback(NetDevice::ReceiveCallback cb) override;
     void SetPromiscReceiveCallback(NetDevice::PromiscReceiveCallback cb) override;
     bool SupportsSendFrom() const override;
+
+		void SetQueue(Ptr<Queue<Packet>> queue);
 
   private:
     Ptr<SwitchedEthernetChannel> m_channel;
@@ -112,6 +118,15 @@ class SwitchedEthernetHostDevice : public NetDevice
     uint32_t m_ifIndex{0};
     NetDevice::ReceiveCallback m_rxCallback;
     NetDevice::PromiscReceiveCallback m_promiscRxCallback;
+
+
+		// Queueing
+		enum TxState {
+			READY,
+			BUSY
+		};
+		TxState m_txState = READY;
+		Ptr<Queue<Packet>> m_queue;
 
     TracedCallback<Ptr<const Packet>> m_macTxTrace;
     TracedCallback<Ptr<const Packet>> m_macRxTrace;

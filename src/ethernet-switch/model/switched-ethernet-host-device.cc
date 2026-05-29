@@ -27,7 +27,8 @@
 #include "ns3/node.h"
 #include "ns3/packet.h"
 #include "ns3/simulator.h"
-#include "ns3/uinteger.h"
+#include "ns3/pointer.h"
+#include "ns3/ptr.h"
 
 namespace ns3
 {
@@ -49,6 +50,11 @@ SwitchedEthernetHostDevice::GetTypeId()
                           MakeUintegerAccessor(&SwitchedEthernetHostDevice::SetMtu,
                                                &SwitchedEthernetHostDevice::GetMtu),
                           MakeUintegerChecker<uint16_t>())
+						.AddAttribute("TxQueue",
+                          "A queue to use as the transmit queue in the device.",
+                          PointerValue(),
+                          MakePointerAccessor(&SwitchedEthernetHostDevice::m_queue),
+                          MakePointerChecker<Queue<Packet>>())
             .AddTraceSource("MacTx",
                             "A packet is queued for transmission by this device.",
                             MakeTraceSourceAccessor(&SwitchedEthernetHostDevice::m_macTxTrace),
@@ -183,19 +189,47 @@ SwitchedEthernetHostDevice::SendFrom(Ptr<Packet> packet,
     m_snifferTrace(packet);
     m_promiscSnifferTrace(packet);
 
-    if (!m_channel->TransmitStart(packet, m_devId))
+		if (!m_queue->Enqueue(packet))
     {
-        NS_LOG_WARN("SendFrom: channel busy — drop");
+				NS_LOG_INFO("SendFrom: dropped packet due to failed enqueue.");
         m_macTxDropTrace(packet);
         return false;
     }
 
+		TryTransmit();
+		return true;
+}
+
+void SwitchedEthernetHostDevice::TryTransmit(){
+		if (m_txState == READY){
+			if (!m_queue->IsEmpty())
+        {
+        	Ptr<Packet> packet = m_queue->Dequeue();
+					TransmitStart(packet);
+				}
+		}
+		
+}
+
+void SwitchedEthernetHostDevice::TransmitStart(Ptr<Packet> packet){
+	  if (!m_channel->TransmitStart(packet, m_devId)){
+        NS_LOG_WARN("TransmitStart: channel busy: drop");
+        m_macTxDropTrace(packet);
+        return;
+    }
+		m_txState = BUSY;
+
     DataRate rate = m_channel->GetDataRate();
     Time txTime = rate.CalculateBytesTxTime(packet->GetSize());
     Simulator::Schedule(txTime, &SwitchedEthernetChannel::TransmitEnd, m_channel, m_devId);
-    return true;
+		Simulator::Schedule(txTime, &SwitchedEthernetHostDevice::TransmitEnd, this);
+    return;
 }
 
+void SwitchedEthernetHostDevice::TransmitEnd(){
+	m_txState = READY;
+	TryTransmit();
+}
 // ---------------------------------------------------------------------------
 // NetDevice interface
 // ---------------------------------------------------------------------------
@@ -330,6 +364,10 @@ bool
 SwitchedEthernetHostDevice::SupportsSendFrom() const
 {
     return true;
+}
+
+void SwitchedEthernetHostDevice::SetQueue(Ptr<Queue<Packet>> queue){
+	m_queue = queue;
 }
 
 } // namespace ns3
