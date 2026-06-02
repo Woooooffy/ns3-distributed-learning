@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     sw_helper.SetDeviceAttribute("EnableCustomImpl", BooleanValue(true));
     
     gpunodes.Create<GPU>(8);
-    swtches.Create(2);
+    swtches.Create(6);
     SwitchedEthernetHelper link_helper0;
     link_helper0.SetDeviceAttribute("Mtu", UintegerValue(9000));
     link_helper0.SetChannelAttribute("Delay", StringValue("300ns"));
@@ -24,13 +24,21 @@ int main(int argc, char *argv[]) {
     link_helper1.SetChannelAttribute("Delay", StringValue("1500ns"));
     link_helper1.SetChannelAttribute("DataRate", StringValue("9Gbps"));
     
-    sw_helper.SetDeviceAttribute("Mtu", UintegerValue(9000);
+    sw_helper.SetDeviceAttribute("Mtu", UintegerValue(9000));
     NetDeviceContainer sw_dev0 = sw_helper.Install(swtches.Get(0));
     Ptr<P4SwitchNetDevice> sw0 = DynamicCast<P4SwitchNetDevice>(sw_dev0.Get(0));
     NetDeviceContainer sw_dev1 = sw_helper.Install(swtches.Get(1));
     Ptr<P4SwitchNetDevice> sw1 = DynamicCast<P4SwitchNetDevice>(sw_dev1.Get(0));
+    NetDeviceContainer sw_dev2 = sw_helper.Install(swtches.Get(2));
+    Ptr<P4SwitchNetDevice> sw2 = DynamicCast<P4SwitchNetDevice>(sw_dev2.Get(0));
+    NetDeviceContainer sw_dev3 = sw_helper.Install(swtches.Get(3));
+    Ptr<P4SwitchNetDevice> sw3 = DynamicCast<P4SwitchNetDevice>(sw_dev3.Get(0));
+    NetDeviceContainer sw_dev4 = sw_helper.Install(swtches.Get(4));
+    Ptr<P4SwitchNetDevice> sw4 = DynamicCast<P4SwitchNetDevice>(sw_dev4.Get(0));
+    NetDeviceContainer sw_dev5 = sw_helper.Install(swtches.Get(5));
+    Ptr<P4SwitchNetDevice> sw5 = DynamicCast<P4SwitchNetDevice>(sw_dev5.Get(0));
     
-    NetDeviceContainer devs0_0 = link_helper0.Install(sw0, gpunodes.Get(0));
+    NetDeviceContainer devs0_0 = link_helper0.ConnectHost(sw0, gpunodes.Get(0));
     
     for (int i = 0; i < 8; ++i){
         if (i != 0){
@@ -39,7 +47,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_1 = link_helper0.Install(sw0, gpunodes.Get(1));
+    NetDeviceContainer devs0_1 = link_helper0.ConnectHost(sw0, gpunodes.Get(1));
     
     for (int i = 0; i < 8; ++i){
         if (i != 1){
@@ -48,7 +56,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_2 = link_helper0.Install(sw0, gpunodes.Get(2));
+    NetDeviceContainer devs0_2 = link_helper0.ConnectHost(sw0, gpunodes.Get(2));
     
     for (int i = 0; i < 8; ++i){
         if (i != 2){
@@ -57,7 +65,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_3 = link_helper0.Install(sw0, gpunodes.Get(3));
+    NetDeviceContainer devs0_3 = link_helper0.ConnectHost(sw0, gpunodes.Get(3));
     
     for (int i = 0; i < 8; ++i){
         if (i != 3){
@@ -66,7 +74,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_4 = link_helper0.Install(sw1, gpunodes.Get(4));
+    NetDeviceContainer devs0_4 = link_helper0.ConnectHost(sw1, gpunodes.Get(4));
     
     for (int i = 0; i < 8; ++i){
         if (i != 4){
@@ -75,7 +83,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_5 = link_helper0.Install(sw1, gpunodes.Get(5));
+    NetDeviceContainer devs0_5 = link_helper0.ConnectHost(sw1, gpunodes.Get(5));
     
     for (int i = 0; i < 8; ++i){
         if (i != 5){
@@ -84,7 +92,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_6 = link_helper0.Install(sw1, gpunodes.Get(6));
+    NetDeviceContainer devs0_6 = link_helper0.ConnectHost(sw1, gpunodes.Get(6));
     
     for (int i = 0; i < 8; ++i){
         if (i != 6){
@@ -93,7 +101,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    NetDeviceContainer devs0_7 = link_helper0.Install(sw1, gpunodes.Get(7));
+    NetDeviceContainer devs0_7 = link_helper0.ConnectHost(sw1, gpunodes.Get(7));
     
     for (int i = 0; i < 8; ++i){
         if (i != 7){
@@ -102,7 +110,17 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    link_helper1.ConnectSwitches(sw0, sw1);
+    link_helper1.ConnectSwitches(sw0, sw2);
+    
+    link_helper1.ConnectSwitches(sw1, sw4);
+    
+    link_helper1.ConnectSwitches(sw2, sw3);
+    
+    link_helper1.ConnectSwitches(sw3, sw4);
+    
+    link_helper1.ConnectSwitches(sw4, sw5);
+    
+    link_helper1.ConnectSwitches(sw2, sw5);
     
     
     /*

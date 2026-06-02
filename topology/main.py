@@ -8,7 +8,7 @@ with open("grammar.lark", "r") as f:
 
 parser = Lark(grammar_text, parser="lalr")
 
-with open("examples/hubs1.topo", "r") as f:
+with open("examples/hubs1-multipath.topo", "r") as f:
 	topo_text = f.read()
 
 tree = parser.parse(topo_text)
