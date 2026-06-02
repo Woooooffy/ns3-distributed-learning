@@ -34,105 +34,105 @@ int main(int argc, char *argv[]) {
     NodeContainer swtches;
     P4Helper sw_helper;
     sw_helper.SetDeviceAttribute("EnableCustomImpl", BooleanValue(true));
-    
+
     gpunodes.Create<GPU>(8);
     swtches.Create(2);
     SwitchedEthernetHelper link_helper0;
     link_helper0.SetDeviceAttribute("Mtu", UintegerValue(9000));
     link_helper0.SetChannelAttribute("Delay", StringValue("300ns"));
     link_helper0.SetChannelAttribute("DataRate", StringValue("125Gbps"));
-    
+
     SwitchedEthernetHelper link_helper1;
     link_helper1.SetDeviceAttribute("Mtu", UintegerValue(9000));
     link_helper1.SetChannelAttribute("Delay", StringValue("1500ns"));
     link_helper1.SetChannelAttribute("DataRate", StringValue("9Gbps"));
-    
+
     sw_helper.SetDeviceAttribute("Mtu", UintegerValue(9000));
     NetDeviceContainer sw_dev0 = sw_helper.Install(swtches.Get(0));
     Ptr<P4SwitchNetDevice> sw0 = DynamicCast<P4SwitchNetDevice>(sw_dev0.Get(0));
     NetDeviceContainer sw_dev1 = sw_helper.Install(swtches.Get(1));
     Ptr<P4SwitchNetDevice> sw1 = DynamicCast<P4SwitchNetDevice>(sw_dev1.Get(0));
-    
+
     NetDeviceContainer devs0_0 = link_helper0.ConnectHost(sw0, gpunodes.Get(0));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 0){
             DynamicCast<GPU>(gpunodes.Get(0))->PushSendPeerDevice(i, devs0_0.Get(0));
             DynamicCast<GPU>(gpunodes.Get(0))->PushRecvPeerDevice(i, devs0_0.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_1 = link_helper0.ConnectHost(sw0, gpunodes.Get(1));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 1){
             DynamicCast<GPU>(gpunodes.Get(1))->PushSendPeerDevice(i, devs0_1.Get(0));
             DynamicCast<GPU>(gpunodes.Get(1))->PushRecvPeerDevice(i, devs0_1.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_2 = link_helper0.ConnectHost(sw0, gpunodes.Get(2));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 2){
             DynamicCast<GPU>(gpunodes.Get(2))->PushSendPeerDevice(i, devs0_2.Get(0));
             DynamicCast<GPU>(gpunodes.Get(2))->PushRecvPeerDevice(i, devs0_2.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_3 = link_helper0.ConnectHost(sw0, gpunodes.Get(3));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 3){
             DynamicCast<GPU>(gpunodes.Get(3))->PushSendPeerDevice(i, devs0_3.Get(0));
             DynamicCast<GPU>(gpunodes.Get(3))->PushRecvPeerDevice(i, devs0_3.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_4 = link_helper0.ConnectHost(sw1, gpunodes.Get(4));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 4){
             DynamicCast<GPU>(gpunodes.Get(4))->PushSendPeerDevice(i, devs0_4.Get(0));
             DynamicCast<GPU>(gpunodes.Get(4))->PushRecvPeerDevice(i, devs0_4.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_5 = link_helper0.ConnectHost(sw1, gpunodes.Get(5));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 5){
             DynamicCast<GPU>(gpunodes.Get(5))->PushSendPeerDevice(i, devs0_5.Get(0));
             DynamicCast<GPU>(gpunodes.Get(5))->PushRecvPeerDevice(i, devs0_5.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_6 = link_helper0.ConnectHost(sw1, gpunodes.Get(6));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 6){
             DynamicCast<GPU>(gpunodes.Get(6))->PushSendPeerDevice(i, devs0_6.Get(0));
             DynamicCast<GPU>(gpunodes.Get(6))->PushRecvPeerDevice(i, devs0_6.Get(0));
         }
     }
-    
+
     NetDeviceContainer devs0_7 = link_helper0.ConnectHost(sw1, gpunodes.Get(7));
-    
+
     for (int i = 0; i < 8; ++i){
         if (i != 7){
             DynamicCast<GPU>(gpunodes.Get(7))->PushSendPeerDevice(i, devs0_7.Get(0));
             DynamicCast<GPU>(gpunodes.Get(7))->PushRecvPeerDevice(i, devs0_7.Get(0));
         }
     }
-    
+
     link_helper1.ConnectSwitches(sw0, sw1);
-    
-    
- 
+
+
+
     // TODO: either emit the following from DSL, or make helpers
 		// for things not yet wanted to be added to DSL (e.g. if it
 		// may require changes in the near future)
-		
+
 		const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_DSL_test.txt";
 // const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_n_8_-DGX1-steps_3_rounds_7_chunks_6.txt";
 		std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test1.xml");
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
 		packetSocket.Install(gpunodes);
 
 		TopoNodeSet topo(gpunodes);
-		AlgoParseResult result = ParseAlgoFromXml(XML_ALGO.c_str(), topo); 
+		AlgoParseResult result = ParseAlgoFromXml(XML_ALGO.c_str(), topo);
 		if (result != AlgoParseResult::ALGO_PARSE_SUCCESS) NS_LOG_ERROR("Encountered issue in parsing XML algorithm, error code " << result);
 
 		static std::ofstream logtxt;
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
     	NS_FATAL_ERROR("Failed to log file");
 		}
 		chmod(LOG_FILE.c_str(), 0666);
-		
+
 		// debug dump
 		for (int i = 0; i < topo.GetNNodes(); ++i){
 			Ptr<GPU> gpu = DynamicCast<GPU, Node>(topo.GetNode(i));
@@ -210,9 +210,9 @@ int main(int argc, char *argv[]) {
 				sw1->GetCustomImpl()->AddForwardingRule(flow, dst % 4);
 			}
 		}
-	
 
-  
+
+
 		CollectiveTester tester(apps, true, logtxt);
 		tester.SetupAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
     Simulator::Run();
@@ -221,11 +221,11 @@ int main(int argc, char *argv[]) {
           << simTime.GetNanoSeconds() << " nanoseconds" << std::endl;
 
 		CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
-		
+
 		if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
 		else std::cout << "Allgather incorrect." << std::endl;
 
-	
+
     Simulator::Destroy();
 		NS_LOG_UNCOND("Done simulation");
 
@@ -233,4 +233,3 @@ int main(int argc, char *argv[]) {
 		#endif
     return 0;
 }
-
