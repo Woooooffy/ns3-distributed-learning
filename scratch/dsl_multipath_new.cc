@@ -1,3 +1,10 @@
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <array>
+#include <map>
+
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/csma-module.h"
@@ -7,6 +14,12 @@
 using namespace ns3;
 
 int main(int argc, char *argv[]) {
+		NS_LOG_COMPONENT_DEFINE("DSL_TEST");
+//		LogComponentEnable("CustomSwitchImpl", LOG_LEVEL_ALL);
+		LogComponentEnable("DSL_TEST", LOG_LEVEL_ALL);
+//		LogComponentEnable("P4SwitchNetDevice", LOG_LEVEL_ALL);
+//		LogComponentEnable("SwitchedEthernetHostDevice", LOG_LEVEL_ALL);
+//		LogComponentEnable("CollectivesApplication", LOG_LEVEL_ALL);
     NodeContainer gpunodes;
     NodeContainer swtches;
     P4Helper sw_helper;
@@ -21,8 +34,14 @@ int main(int argc, char *argv[]) {
 
     SwitchedEthernetHelper link_helper1;
     link_helper1.SetDeviceAttribute("Mtu", UintegerValue(9000));
-    link_helper1.SetChannelAttribute("Delay", StringValue("1500ns"));
-    link_helper1.SetChannelAttribute("DataRate", StringValue("9Gbps"));
+    link_helper1.SetChannelAttribute("Delay", StringValue("2000ns"));
+    link_helper1.SetChannelAttribute("DataRate", StringValue("30Gbps"));
+
+    SwitchedEthernetHelper link_helper2;
+    link_helper2.SetDeviceAttribute("Mtu", UintegerValue(9000));
+    link_helper2.SetChannelAttribute("Delay", StringValue("2000ns"));
+    link_helper2.SetChannelAttribute("DataRate", StringValue("25Gbps"));
+
 
     sw_helper.SetDeviceAttribute("Mtu", UintegerValue(9000));
     NetDeviceContainer sw_dev0 = sw_helper.Install(swtches.Get(0));
@@ -118,13 +137,14 @@ int main(int argc, char *argv[]) {
 
     link_helper1.ConnectSwitches(sw3, sw4);
 
-    link_helper1.ConnectSwitches(sw4, sw5);
+    link_helper2.ConnectSwitches(sw4, sw5);
 
-    link_helper1.ConnectSwitches(sw2, sw5);
+    link_helper2.ConnectSwitches(sw2, sw5);
 
 
     /*
     */
+		NS_LOG_INFO("DSL emitted setup completed");
 
 		const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_DSL_test.txt";
 // const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_n_8_-DGX1-steps_3_rounds_7_chunks_6.txt";
@@ -139,7 +159,7 @@ int main(int argc, char *argv[]) {
 		std::array<NetDeviceContainer*, N_NODES> recv_addr = {&devs0_0, &devs0_1, &devs0_2, &devs0_3, &devs0_4, &devs0_5, &devs0_6, &devs0_7};
 		for (int i = 0; i < N_NODES; ++i){
 			for (int j = 0; j < N_NODES; ++j){
-				if (i != j) DynamicCast<GPU>(gpunodes.Get(i))->PushPeerAddr(j, recv_addr[j]->Get(1)->GetAddress());
+				if (i != j) DynamicCast<GPU>(gpunodes.Get(i))->PushPeerAddr(j, recv_addr[j]->Get(0)->GetAddress());
 			}
 		}
 
@@ -165,6 +185,8 @@ int main(int argc, char *argv[]) {
 		app_helper.SetAttribute("ChunkSize", UintegerValue(CHUNK_SIZE));
 		ApplicationContainer apps = app_helper.Install<GPU>(gpunodes);
 
+		NS_LOG_INFO("Installed applications");
+
 		// Testing with flow tables
 		std::map<std::pair<int, int>, uint32_t> flowIds;
 		uint32_t c = 0;
@@ -179,7 +201,7 @@ int main(int argc, char *argv[]) {
 		}
 
 
-		#define SCHEME 1
+		#define SCHEME 2
 		std::cout << "Testing scheme " << SCHEME << std::endl;
 		std::map<uint32_t, std::vector<int>> shared_trace;
 
