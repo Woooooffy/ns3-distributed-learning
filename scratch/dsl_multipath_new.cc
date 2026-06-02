@@ -209,14 +209,14 @@ int main(int argc, char *argv[]) {
 			uint32_t flow = cur->second;
 
 			if (src < 4 && dst >= 4){
-				sw2->AddForwardingRule(flow, 1);
-				sw3->AddForwardingRule(flow, 1);
-				sw4->AddForwardingRule(flow, 0);
+				sw2->GetCustomImpl()->AddForwardingRule(flow, 1);
+				sw3->GetCustomImpl()->AddForwardingRule(flow, 1);
+				sw4->GetCustomImpl()->AddForwardingRule(flow, 0);
 			}
 			else if (src >= 4 && dst < 4){
-				sw2->AddForwardingRule(flow, 0);
-				sw5->AddForwardingRule(flow, 1);
-				sw4->AddForwardingRule(flow, 2);
+				sw2->GetCustomImpl()->AddForwardingRule(flow, 0);
+				sw5->GetCustomImpl()->AddForwardingRule(flow, 1);
+				sw4->GetCustomImpl()->AddForwardingRule(flow, 2);
 			}
 		}
 		#elif SCHEME == 1
@@ -226,14 +226,14 @@ int main(int argc, char *argv[]) {
 			uint32_t flow = cur->second;
 
 			if (src < 4 && dst >= 4){
-				sw2->AddForwardingRule(flow, 1);
-				sw3->AddForwardingRule(flow, 1);
-				sw4->AddForwardingRule(flow, 0);
+				sw2->GetCustomImpl()->AddForwardingRule(flow, 1);
+				sw3->GetCustomImpl()->AddForwardingRule(flow, 1);
+				sw4->GetCustomImpl()->AddForwardingRule(flow, 0);
 			}
 			else if (src >= 4 && dst < 4){
-				sw2->AddForwardingRule(flow, 0);
-				sw3->AddForwardingRule(flow, 0);
-				sw4->AddForwardingRule(flow, 1);
+				sw2->GetCustomImpl()->AddForwardingRule(flow, 0);
+				sw3->GetCustomImpl()->AddForwardingRule(flow, 0);
+				sw4->GetCustomImpl()->AddForwardingRule(flow, 1);
 			}
 		}
 
@@ -245,26 +245,26 @@ int main(int argc, char *argv[]) {
 
 			if (src < 4 && dst >= 4){
 				if ((src % 2) == 0) {
-					sw2->AddForwardingRule(flow, 1);
-					sw3->AddForwardingRule(flow, 1);
-					sw4->AddForwardingRule(flow, 0);
+					sw2->GetCustomImpl()->AddForwardingRule(flow, 1);
+					sw3->GetCustomImpl()->AddForwardingRule(flow, 1);
+					sw4->GetCustomImpl()->AddForwardingRule(flow, 0);
 				}
 				else {
-					sw2->AddForwardingRule(flow, 2);
-					sw5->AddForwardingRule(flow, 1);
-					sw4->AddForwardingRule(flow, 0);
+					sw2->GetCustomImpl()->AddForwardingRule(flow, 2);
+					sw5->GetCustomImpl()->AddForwardingRule(flow, 1);
+					sw4->GetCustomImpl()->AddForwardingRule(flow, 0);
 				}
 			}
 			else if (src >= 4 && dst < 4){
 				if ((dst % 2) == 0) {
-					sw2->AddForwardingRule(flow, 0);
-					sw3->AddForwardingRule(flow, 0);
-					sw4->AddForwardingRule(flow, 1);
+					sw2->GetCustomImpl()->AddForwardingRule(flow, 0);
+					sw3->GetCustomImpl()->AddForwardingRule(flow, 0);
+					sw4->GetCustomImpl()->AddForwardingRule(flow, 1);
 				}
 				else{
-					sw2->AddForwardingRule(flow, 0);
-					sw5->AddForwardingRule(flow, 1);
-					sw4->AddForwardingRule(flow, 2);
+					sw2->GetCustomImpl()->AddForwardingRule(flow, 0);
+					sw5->GetCustomImpl()->AddForwardingRule(flow, 1);
+					sw4->GetCustomImpl()->AddForwardingRule(flow, 2);
 				}
 			}
 		}
