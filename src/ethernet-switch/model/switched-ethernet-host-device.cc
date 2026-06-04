@@ -50,7 +50,7 @@ SwitchedEthernetHostDevice::GetTypeId()
                           MakeUintegerAccessor(&SwitchedEthernetHostDevice::SetMtu,
                                                &SwitchedEthernetHostDevice::GetMtu),
                           MakeUintegerChecker<uint16_t>())
-						.AddAttribute("TxQueue",
+			.AddAttribute("TxQueue",
                           "A queue to use as the transmit queue in the device.",
                           PointerValue(),
                           MakePointerAccessor(&SwitchedEthernetHostDevice::m_queue),
@@ -189,9 +189,9 @@ SwitchedEthernetHostDevice::SendFrom(Ptr<Packet> packet,
     m_snifferTrace(packet);
     m_promiscSnifferTrace(packet);
 
-		if (!m_queue->Enqueue(packet))
+	if (!m_queue->Enqueue(packet))
     {
-				NS_LOG_INFO("SendFrom: dropped packet due to failed enqueue.");
+		NS_LOG_INFO("SendFrom: dropped packet due to failed enqueue.");
         m_macTxDropTrace(packet);
         return false;
     }
@@ -208,7 +208,7 @@ void SwitchedEthernetHostDevice::TryTransmit(){
 					TransmitStart(packet);
 				}
 		}
-		
+
 }
 
 void SwitchedEthernetHostDevice::TransmitStart(Ptr<Packet> packet){
