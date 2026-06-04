@@ -248,7 +248,13 @@ namespace ns3 {
 			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
 			pkt->AddHeader(fragHdr);
 			offset += fragPayload;
-			sock->Send(pkt, 0);
+			int result = sock->Send(pkt, 0);
+			if (result < 0){
+				NS_FATAL_ERROR("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id
+					<< ": sock->Send() failed (returned " << result << ") to peer " << sendpeer
+					<< " fragOffset=" << (offset - fragPayload) << " fragPayload=" << fragPayload
+					<< " txAvail=" << sock->GetTxAvailable());
+			}
 		}
 	}
 
