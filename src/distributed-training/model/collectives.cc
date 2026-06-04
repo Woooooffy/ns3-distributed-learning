@@ -80,6 +80,7 @@ namespace ns3 {
 		NS_LOG_FUNCTION(this);
 		uint32_t sendSize = bytes;
 		std::queue<PendingTransfer>& sendQueue = m_pendingSends.at(sock);
+		NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": SendCallback bytes=" << bytes << " queueSize=" << sendQueue.size() << (sendQueue.empty() ? " EMPTY" : " frontPending=" + std::to_string(sendQueue.front().pendingBytes)));
 		while (sendSize > 0 && !sendQueue.empty()){
 			auto& cur = sendQueue.front();
 			uint32_t take = std::min(sendSize, cur.pendingBytes);
@@ -87,10 +88,14 @@ namespace ns3 {
 			sendSize -= take;
 			if (cur.pendingBytes == 0){
 				// logical packet fully sent
+				NS_LOG_INFO("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": send step complete bid=" << (int)cur.bid << " sid=" << cur.sid);
 				sendQueue.pop();
 				// send should always be last op
 				Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, m_app, cur.bid, cur.sid);
 			}
+		}
+		if (sendSize > 0){
+			NS_LOG_WARN("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": SendCallback has " << sendSize << " unaccounted bytes (queue empty). Leftover bytes lost.");
 		}
 	}
 
@@ -248,9 +253,6 @@ namespace ns3 {
 	}
 
 	void MscclChannel::Recv(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff){
-		if (recvpeer == 2 && m_app->GetNode()->GetId() == 0){
-			NS_LOG_INFO("Debug line: calling recv from n2 on n0 here.");
-		}
 		if (dstoff < 0) NS_FATAL_ERROR("Invalid offset");
 		PendingTransfer recv(bid, sid, nElems * DataType::GetSizeBytes(m_dataType), MSCCL_RECV, 0, -1, dstbuf, dstoff);
 		std::pair<uint16_t, uint16_t> dstinfo(dstbuf, static_cast<uint16_t> (dstoff));
