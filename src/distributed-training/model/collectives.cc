@@ -119,13 +119,15 @@ namespace ns3 {
 				// happens rn because all sockets on the node receives and forwards up.
 				// to be fixed
 				NS_LOG_DEBUG("Ignoring packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expecting " << peerId << " to " << m_app->GetNode()->GetId());
-				break;
+				free(tmp);
+				continue;
 			}
 			if (m_id != hdr.GetChannel()){
 				// expected to happen sometimes
 				// TODO: handle multiple links channel-socket-device assignments
 				NS_LOG_INFO("Ignoring packet for another channel");
-				break;
+				free(tmp);
+				continue;
 			}
 			// copy fragment into destination at the byte offset encoded in the header
 			std::pair<uint16_t, uint16_t> dstInfo(hdr.GetDstBuf(), hdr.GetDstOff());
@@ -154,7 +156,7 @@ namespace ns3 {
 				}
 				m_pendingRecvByBufferRegion.erase(dstInfo);
 				free(tmp);
-				return;
+				continue;
 			}
 			// otherwise do not yet know what to do; post this ready recv
 			if (m_recvReadyByBufferRegion.contains(dstInfo) && m_recvReadyByBufferRegion[dstInfo] == true){
