@@ -118,14 +118,14 @@ namespace ns3 {
 					// TODO: forwarding not yet handled
 				// happens rn because all sockets on the node receives and forwards up.
 				// to be fixed
-				NS_LOG_DEBUG("Ignoring packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expecting " << peerId << " to " << m_app->GetNode()->GetId());
+				NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": discarding packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expected peer " << peerId << ". fragOff=" << hdr.GetFragByteOffset() << " totalBytes=" << hdr.GetBytes());
 				free(tmp);
 				continue;
 			}
 			if (m_id != hdr.GetChannel()){
 				// expected to happen sometimes
 				// TODO: handle multiple links channel-socket-device assignments
-				NS_LOG_INFO("Ignoring packet for another channel");
+				NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << ": discarding packet for channel " << hdr.GetChannel() << " on channel " << (int)m_id << ". src=" << hdr.GetSrcGpu() << " fragOff=" << hdr.GetFragByteOffset() << " totalBytes=" << hdr.GetBytes());
 				free(tmp);
 				continue;
 			}
@@ -136,10 +136,15 @@ namespace ns3 {
 
 			// accumulate received bytes; complete only when the full logical transfer is done
 			m_recvBytesAccum[dstInfo] += recvSize;
+			NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": recv frag from " << hdr.GetSrcGpu() << " dstInfo=(" << dstInfo.first << "," << dstInfo.second << ") fragOff=" << hdr.GetFragByteOffset() << " fragBytes=" << recvSize << " accum=" << m_recvBytesAccum[dstInfo] << "/" << hdr.GetBytes());
 			if (m_recvBytesAccum[dstInfo] < hdr.GetBytes()){
 				free(tmp);
 				continue;
 			}
+			if (m_recvBytesAccum[dstInfo] > hdr.GetBytes()){
+				NS_FATAL_ERROR("Node " << m_app->GetNode()->GetId() << ": accumulator overshot for dstInfo=(" << dstInfo.first << "," << dstInfo.second << "): got " << m_recvBytesAccum[dstInfo] << " expected " << hdr.GetBytes() << ". Possible key collision between concurrent transfers.");
+			}
+			NS_LOG_INFO("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": transfer complete from " << hdr.GetSrcGpu() << " dstInfo=(" << dstInfo.first << "," << dstInfo.second << ") totalBytes=" << hdr.GetBytes());
 			m_recvBytesAccum.erase(dstInfo);
 
 			// if waiting on this recv
