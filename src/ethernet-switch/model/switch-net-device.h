@@ -183,6 +183,7 @@ class P4SwitchNetDevice : public NetDevice
 		Ptr<CustomSwitchImpl> GetCustomImpl();
 
 		std::string GetQueueTypeId();
+		uint32_t GetQueueMaxSize();
 
     // -----------------------------------------------------------------------
     // NetDevice interface
@@ -265,6 +266,7 @@ class P4SwitchNetDevice : public NetDevice
     uint32_t m_ifIndex;
     uint16_t m_mtu;
 		std::string m_queueTypeId;
+		uint32_t m_queueMaxSize;
 
     /**
      * Channels attached via Attach() in order.

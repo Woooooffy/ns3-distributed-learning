@@ -86,6 +86,7 @@ P4Helper::InstallSwitchPriv(Ptr<Node> node) const
 			impl->SetSwitchNetDevice(sw);
 			sw->SetCustomImpl(impl);
 			impl->SetQueueType(sw->GetQueueTypeId());
+			impl->SetQueueMaxSize(sw->GetQueueMaxSize());
 		}
     node->AddDevice(sw);
     NS_LOG_DEBUG("Switch device installed on node " << node->GetId());

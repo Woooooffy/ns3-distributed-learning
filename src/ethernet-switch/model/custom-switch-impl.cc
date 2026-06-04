@@ -1,4 +1,5 @@
 #include "ns3/custom-switch-impl.h"
+#include "ns3/queue-size.h"
 #include "ns3/simulator.h"
 #include "ns3/switched-ethernet-channel.h"
 #include "ns3/switch-net-device.h"
@@ -53,6 +54,10 @@ namespace ns3{
 
 	void CustomSwitchImpl::SetQueueType(std::string type){
 		m_queueFactory.SetTypeId(type);
+	}
+
+	void CustomSwitchImpl::SetQueueMaxSize(uint32_t maxPackets){
+		m_queueFactory.Set("MaxSize", QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS, maxPackets)));
 	}
 
 

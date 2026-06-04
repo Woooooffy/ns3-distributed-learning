@@ -102,6 +102,12 @@ P4SwitchNetDevice::GetTypeId()
               MakeStringAccessor(&P4SwitchNetDevice::m_queueTypeId),
               MakeStringChecker())
 
+            .AddAttribute("QueueMaxSize",
+                          "Maximum number of packets held in each per-port queue.",
+                          UintegerValue(500),
+                          MakeUintegerAccessor(&P4SwitchNetDevice::m_queueMaxSize),
+                          MakeUintegerChecker<uint32_t>(1))
+
             .AddTraceSource("SwitchEvent",
                             "Fired when the P4 pipeline emits a switch event.",
                             MakeTraceSourceAccessor(&P4SwitchNetDevice::m_switchEvent),
@@ -157,9 +163,10 @@ P4SwitchNetDevice::P4SwitchNetDevice()
       m_switchRate(1000),
       m_node(nullptr),
       m_ifIndex(0),
-      m_mtu(1500)
+      m_mtu(1500),
+      m_queueMaxSize(100)
 {
-    NS_LOG_FUNCTION_NOARGS();	
+    NS_LOG_FUNCTION_NOARGS();
 }
 
 P4SwitchNetDevice::~P4SwitchNetDevice()
@@ -446,6 +453,10 @@ Ptr<CustomSwitchImpl> P4SwitchNetDevice::GetCustomImpl(){
 
 std::string P4SwitchNetDevice::GetQueueTypeId(){
 	return m_queueTypeId;
+}
+
+uint32_t P4SwitchNetDevice::GetQueueMaxSize(){
+	return m_queueMaxSize;
 }
 
 

@@ -25,6 +25,7 @@ class CustomSwitchImpl : public Object {
 		void SetSwitchNetDevice(Ptr<P4SwitchNetDevice> dev); 
 		void SetSharedTraceMap(std::map<uint32_t, std::vector<int>>* map);
 		void SetQueueType(std::string type);
+		void SetQueueMaxSize(uint32_t maxPackets);
 		void ReceivePacket(Ptr<Packet> packetIn,
                       int inPort, uint16_t protocol,
                       const Address& destination, NetDevice::PacketType type);
