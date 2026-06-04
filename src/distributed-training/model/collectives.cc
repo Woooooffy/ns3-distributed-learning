@@ -222,16 +222,22 @@ namespace ns3 {
 		uint32_t offset = 0;
 		while (offset < totalBytes){
 			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
-			Ptr<Packet> pkt = Create<ns3::Packet>(srcData + offset, fragPayload);
-			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
-			pkt->AddHeader(fragHdr);
 			totalWireBytes += fragPayload + headerSize;
 			offset += fragPayload;
-			sock->Send(pkt, 0);
 		}
 
 		PendingTransfer send(bid, sid, totalWireBytes, MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
 		m_pendingSends[sock].push(send);
+
+		offset = 0;
+		while (offset < totalBytes){
+			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
+			Ptr<Packet> pkt = Create<ns3::Packet>(srcData + offset, fragPayload);
+			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
+			pkt->AddHeader(fragHdr);
+			offset += fragPayload;
+			sock->Send(pkt, 0);
+		}
 	}
 
 	void MscclChannel::Recv(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff){
