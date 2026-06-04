@@ -12,7 +12,7 @@
 namespace ns3 {
 
 	NS_LOG_COMPONENT_DEFINE("CollectivesApplication");
-	
+
 	NS_OBJECT_ENSURE_REGISTERED(CollectivesApplication);
 	MscclChannel::MscclChannel(){}
 	MscclChannel::MscclChannel(int id, Ptr<CollectivesApplication> app): m_id(id), m_dataType(app->GetDataType()), m_socketType(app->GetSocketTypeId()), m_app(app){}
@@ -63,7 +63,7 @@ namespace ns3 {
 		// sock->SetRecvCallback(MakeCallback(&MscclChannel::RecvCallback, this));
 		sock->SetDataSentCallback(MakeCallback(&MscclChannel::SendCallback, this));
 		m_sendPeerSockets[peerId] = sock;
-	}	
+	}
 
 	void MscclChannel::SetupRecvPeer(int peerId) {
 		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
@@ -127,15 +127,22 @@ namespace ns3 {
 				NS_LOG_INFO("Ignoring packet for another channel");
 				break;
 			}
-			// copy data
-			// TODO: handle app level chunking properly
+			// copy fragment into destination at the byte offset encoded in the header
 			std::pair<uint16_t, uint16_t> dstInfo(hdr.GetDstBuf(), hdr.GetDstOff());
-			void* dst = m_app->GetBufferPtr(dstInfo.first, dstInfo.second);
-			memcpy(dst, tmp + tmp_offset, recvSize);
+			uint8_t* dst = (uint8_t*) m_app->GetBufferPtr(dstInfo.first, dstInfo.second);
+			memcpy(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize);
+
+			// accumulate received bytes; complete only when the full logical transfer is done
+			m_recvBytesAccum[dstInfo] += recvSize;
+			if (m_recvBytesAccum[dstInfo] < hdr.GetBytes()){
+				free(tmp);
+				continue;
+			}
+			m_recvBytesAccum.erase(dstInfo);
+
 			// if waiting on this recv
 			if (m_pendingRecvByBufferRegion.contains(dstInfo)){
 				auto& cur = m_pendingRecvByBufferRegion[dstInfo];
-				// TODO: same as above
 				switch (cur.op){
 					case MSCCL_RECV:
 						Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, m_app, cur.bid, cur.sid);
@@ -154,7 +161,7 @@ namespace ns3 {
 				NS_FATAL_ERROR("Received multiple packets for same dst region. Check scheduling bugs or duplicate packet in network");
 			}
 			m_recvReadyByBufferRegion[dstInfo] = true;
-			/* std::queue<PendingTransfer>& recvQueue = m_pendingRecvs.at(peerId);	
+			/* std::queue<PendingTransfer>& recvQueue = m_pendingRecvs.at(peerId);
 			while (recvSize > 0 && !recvQueue.empty()){
 				auto& cur = recvQueue.front();
 				uint32_t take = std::min(recvSize, cur.pendingBytes);
@@ -198,27 +205,33 @@ namespace ns3 {
 		if (dstoff < 0){
 			NS_FATAL_ERROR("Invalid dst offset in Send");
 		}
-		uint32_t bytes = nElems * DataType::GetSizeBytes(m_dataType); 
+		uint32_t totalBytes = nElems * DataType::GetSizeBytes(m_dataType);
 		Ptr<Socket> sock = m_sendPeerSockets.at(sendpeer);
-		if (sendpeer == 0 && m_app->GetNode()->GetId() == 1){
-			NS_LOG_INFO("Debug line: calling Send from n1 to n0 here.");
-		}
-		if (sendpeer == 1 && m_app->GetNode()->GetId() == 0){
-			NS_LOG_INFO("Debug line: calling Send from n0 to n1 here.");
-		}
-		Ptr<Packet> pkt = Create<ns3::Packet>((uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff), bytes);
 		int flowId = 0;
 		#ifdef FLOW_ID_TEST
 			flowId = GetFlowId(m_app->GetNode()->GetId(), sendpeer);
 		#endif
-		MscclHeader header(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), bytes, flowId);
-		pkt->AddHeader(header);
-		PendingTransfer send(bid, sid, bytes + header.GetSerializedSize(), MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
+
+		uint32_t mtu = m_app->GetSendDevicePeer(sendpeer, m_id)->GetMtu();
+		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
+		uint32_t headerSize = templateHdr.GetSerializedSize();
+		uint32_t maxPayload = mtu - headerSize;
+
+		const uint8_t* srcData = (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff);
+		uint32_t totalWireBytes = 0;
+		uint32_t offset = 0;
+		while (offset < totalBytes){
+			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
+			Ptr<Packet> pkt = Create<ns3::Packet>(srcData + offset, fragPayload);
+			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
+			pkt->AddHeader(fragHdr);
+			totalWireBytes += fragPayload + headerSize;
+			offset += fragPayload;
+			sock->Send(pkt, 0);
+		}
+
+		PendingTransfer send(bid, sid, totalWireBytes, MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
 		m_pendingSends[sock].push(send);
-		sock->Send(pkt, 0);
-		// sock->Send((uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff), bytes, 0);
-		// callback triggered by socket send completion
-		// m_app->StepCompletionCallback(bid, sid);
 	}
 
 	void MscclChannel::Recv(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff){
@@ -246,7 +259,7 @@ namespace ns3 {
 	void MscclChannel::RecvRedSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems){
 	NS_FATAL_ERROR("RecvRedSend not yet implemented");
 	}
-	
+
 	void MscclChannel::RecvRedCp(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff){
 		NS_FATAL_ERROR("RecvRedCp not yet implemented");
 		PendingTransfer recv(bid, sid, nElems * DataType::GetSizeBytes(m_dataType), MSCCL_RECV_REDUCE_COPY, 0, -1, dstbuf, dstoff);
@@ -270,7 +283,7 @@ namespace ns3 {
 				NS_FATAL_ERROR("BUG: has pending recv on node " << m_app->GetNode()->GetId() << " channel " << m_id << " at application close.");
 			}
 		}*/
-		// socket close	
+		// socket close
 		if (m_listenSocket) m_listenSocket->Close();
 		for (auto& pair: m_sendPeerSockets){
 			pair.second->Close();
@@ -293,7 +306,7 @@ namespace ns3 {
 					"Element datatype used in the collective operation",
 					EnumValue(DataType::INT32),
 					MakeEnumAccessor<DataType::Type>(&CollectivesApplication::m_dataType),
-					MakeEnumChecker(	
+					MakeEnumChecker(
 						DataType::FLOAT32, "FLOAT32",
 						DataType::FLOAT64, "FLOAT64",
 						DataType::INT32,   "INT32",
@@ -357,7 +370,7 @@ namespace ns3 {
 	}
 
 /*	inline TransferState* CollectivesApplication::GetTransferState(int8_t bid, int16_t sid){
-		return &m_transferStates[std::make_pair(bid, sid)];	
+		return &m_transferStates[std::make_pair(bid, sid)];
 	}*/
 
 	DataBuffer* CollectivesApplication::GetSrcBuffer(){
@@ -384,7 +397,7 @@ namespace ns3 {
 	}
 
 	void CollectivesApplication::NonTransferHandler(int8_t bid, int16_t sid, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff, uint32_t nElems, int8_t op){
-		uint32_t bytes = nElems * DataType::GetSizeBytes(m_dataType); 
+		uint32_t bytes = nElems * DataType::GetSizeBytes(m_dataType);
 		switch (op){
 			case MSCCL_LOCAL_COPY:
 				memcpy(GetBufferPtr(dstbuf, dstoff), GetBufferPtr(srcbuf, srcoff), bytes);
@@ -405,7 +418,7 @@ namespace ns3 {
 		mscclTransfer* tran = &tb->transfers[sid];
 		uint16_t sendPeer = tb->sendpeer;
 		uint16_t recvPeer = tb->recvpeer;
-		uint32_t nElems = ((uint32_t) tran->count) * m_currChunkSize; 
+		uint32_t nElems = ((uint32_t) tran->count) * m_currChunkSize;
 		uint16_t srcbuf = tran->srcbuffer;
 		uint16_t dstbuf = tran->dstbuffer;
 		int16_t srcoff = tran->srcoffset;
@@ -466,7 +479,7 @@ namespace ns3 {
 					return; // cannot schedule
 				}
 				// no need to re-check previous deps next time
-				// commented out for correct global_step update 
+				// commented out for correct global_step update
 				// tState->firstPendingDep++;
 				// tState->nPendingDeps--;
 			}
@@ -488,7 +501,7 @@ namespace ns3 {
 		tbState->global_step++;
 		Simulator::ScheduleNow(&CollectivesApplication::TryScheduleNextStep, this, bid);
 		if (trans->has_dependence){
-			for (int8_t depTB : tbState->tryReschedule){	
+			for (int8_t depTB : tbState->tryReschedule){
 				Simulator::ScheduleNow(&CollectivesApplication::TryScheduleNextStep, this, depTB);
 			}
 			tbState->tryReschedule.clear();
@@ -506,14 +519,14 @@ namespace ns3 {
 			/* for (int16_t local_step = 0; local_step < tb->nsteps; ++local_step){
 				mscclTransfer* trans = &tb->transfers[local_step];
 				int nDeps = trans->numDependences;
-				TransferState* tState = GetTransferState(bid, local_step); 
+				TransferState* tState = GetTransferState(bid, local_step);
 				tState->firstPendingDep = trans->depencePointer;
 				tState->nPendingDeps = nDeps;
 				if (nDeps > 0) {
 					for (int dep = trans->depencePointer; dep < trans->depencePointer + nDeps; ++dep){
 						int8_t depbid = tb->dependentBid[dep];
 						int16_t depsid = tb->dependentStep[dep]; // depsid is global step
-						tState->dependentTBs.insert(depbid); 
+						tState->dependentTBs.insert(depbid);
 					}
 				}
 				// m_transferStates.emplace(std::make_pair(bid, local_step), TransferState(trans->depencePointer, trans->numDependences));
@@ -527,7 +540,7 @@ namespace ns3 {
 
 	void CollectivesApplication::Bootstrap(){
 		for (int i = 0; i < m_algo->nChannels; ++i){
-			mscclChannelInfo* chanInfo = &(m_algo->mscclChannels[i]);	
+			mscclChannelInfo* chanInfo = &(m_algo->mscclChannels[i]);
 			m_channels.emplace(i, MscclChannel(i, this));
 			MscclChannel* chan = &m_channels[i];
 			#ifdef FLOW_ID_TEST
@@ -664,7 +677,7 @@ namespace ns3 {
 
 	void CollectivesApplication::StopApplication(){
 		// channels cleanup
-		for (auto& pair : m_channels){	
+		for (auto& pair : m_channels){
 			pair.second.Close();
 		}
 		// tb states checks

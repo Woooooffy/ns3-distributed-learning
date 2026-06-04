@@ -109,6 +109,7 @@ namespace ns3 {
 			// std::map<int16_t, std::queue<PendingTransfer>> m_pendingRecvs;
 			std::map<std::pair<uint16_t, uint16_t>, PendingTransfer> m_pendingRecvByBufferRegion;
 			std::map<std::pair<uint16_t, uint16_t>, bool> m_recvReadyByBufferRegion;
+			std::map<std::pair<uint16_t, uint16_t>, uint32_t> m_recvBytesAccum;
 			std::map<Ptr<Socket>, std::queue<PendingTransfer>> m_pendingSends;
 			#ifdef FLOW_ID_TEST
 			std::map<std::pair<int, int>, uint32_t>* m_flowIds;

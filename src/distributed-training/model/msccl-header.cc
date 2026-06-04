@@ -19,7 +19,7 @@ namespace ns3 {
 
 	MscclHeader::MscclHeader() = default;
 
-	MscclHeader::MscclHeader(uint16_t src, uint16_t dst, uint16_t chan, uint16_t dstBuf, uint16_t dstOff, uint32_t bytes, uint32_t flowid): m_srcGpu(src), m_dstGpu(dst), m_channel(chan), m_dstBuf(dstBuf), m_dstOff(dstOff), m_flowId(flowid), m_bytes(bytes){}
+	MscclHeader::MscclHeader(uint16_t src, uint16_t dst, uint16_t chan, uint16_t dstBuf, uint16_t dstOff, uint32_t bytes, uint32_t flowid, uint32_t fragByteOffset): m_srcGpu(src), m_dstGpu(dst), m_channel(chan), m_dstBuf(dstBuf), m_dstOff(dstOff), m_flowId(flowid), m_bytes(bytes), m_fragByteOffset(fragByteOffset){}
 
 	void MscclHeader::Serialize(Buffer::Iterator i) const {
 		i.WriteHtonU16(m_srcGpu);
@@ -29,10 +29,11 @@ namespace ns3 {
 		i.WriteHtonU16(m_dstOff);
 		i.WriteHtonU32(m_flowId);
 		i.WriteHtonU32(m_bytes);
+		i.WriteHtonU32(m_fragByteOffset);
 	}
 
 	uint32_t MscclHeader::GetSerializedSize() const {
-		return 18;
+		return 22;
 	}
 
 	uint32_t MscclHeader::Deserialize(Buffer::Iterator i) {
@@ -43,6 +44,7 @@ namespace ns3 {
 		m_dstOff = i.ReadNtohU16();
 		m_flowId = i.ReadNtohU32();
 		m_bytes = i.ReadNtohU32();
+		m_fragByteOffset = i.ReadNtohU32();
 		return GetSerializedSize();
 	}
 
@@ -68,6 +70,14 @@ namespace ns3 {
 
 	uint32_t MscclHeader::GetFlowId(){
 		return m_flowId;
+	}
+
+	uint32_t MscclHeader::GetBytes(){
+		return m_bytes;
+	}
+
+	uint32_t MscclHeader::GetFragByteOffset(){
+		return m_fragByteOffset;
 	}
 
 	void MscclHeader::Print(std::ostream &os) const {
