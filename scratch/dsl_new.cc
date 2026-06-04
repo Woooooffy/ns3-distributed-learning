@@ -25,10 +25,10 @@ int main(int argc, char *argv[]) {
 		#ifdef FLOW_ID_TEST
 
 		NS_LOG_COMPONENT_DEFINE("DSL_TEST");
-		LogComponentEnable("CustomSwitchImpl", LOG_LEVEL_ALL);
-		LogComponentEnable("P4SwitchNetDevice", LOG_LEVEL_ALL);
-		LogComponentEnable("SwitchedEthernetHostDevice", LOG_LEVEL_ALL);
-		LogComponentEnable("CollectivesApplication", LOG_LEVEL_ALL);
+		LogComponentEnable("CustomSwitchImpl", LOG_LEVEL_INFO);
+//		LogComponentEnable("P4SwitchNetDevice", LOG_LEVEL_ALL);
+//		LogComponentEnable("SwitchedEthernetHostDevice", LOG_LEVEL_ALL);
+//		LogComponentEnable("CollectivesApplication", LOG_LEVEL_ALL);
 //		LogComponentEnable("PacketSocket", LOG_LEVEL_ALL);
     NodeContainer gpunodes;
     NodeContainer swtches;
@@ -38,16 +38,16 @@ int main(int argc, char *argv[]) {
     gpunodes.Create<GPU>(8);
     swtches.Create(2);
     SwitchedEthernetHelper link_helper0;
-    link_helper0.SetDeviceAttribute("Mtu", UintegerValue(9000));
+    link_helper0.SetDeviceAttribute("Mtu", UintegerValue(3000));
     link_helper0.SetChannelAttribute("Delay", StringValue("300ns"));
     link_helper0.SetChannelAttribute("DataRate", StringValue("125Gbps"));
 
     SwitchedEthernetHelper link_helper1;
-    link_helper1.SetDeviceAttribute("Mtu", UintegerValue(9000));
+    link_helper1.SetDeviceAttribute("Mtu", UintegerValue(3000));
     link_helper1.SetChannelAttribute("Delay", StringValue("1500ns"));
     link_helper1.SetChannelAttribute("DataRate", StringValue("9Gbps"));
 
-    sw_helper.SetDeviceAttribute("Mtu", UintegerValue(9000));
+    sw_helper.SetDeviceAttribute("Mtu", UintegerValue(3000));
     NetDeviceContainer sw_dev0 = sw_helper.Install(swtches.Get(0));
     Ptr<P4SwitchNetDevice> sw0 = DynamicCast<P4SwitchNetDevice>(sw_dev0.Get(0));
     NetDeviceContainer sw_dev1 = sw_helper.Install(swtches.Get(1));
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
 		constexpr int N_NODES = 8;
 
-		constexpr int CHUNK_SIZE = 512;
+		constexpr int CHUNK_SIZE = 2 << 12;
 		constexpr int N_CHUNKS = 2;
 
 		// TODO: unsafe stuff

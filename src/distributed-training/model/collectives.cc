@@ -215,7 +215,7 @@ namespace ns3 {
 		uint32_t mtu = m_app->GetSendDevicePeer(sendpeer, m_id)->GetMtu();
 		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
 		uint32_t headerSize = templateHdr.GetSerializedSize();
-		uint32_t maxPayload = mtu - headerSize;
+		uint32_t maxPayload = mtu - headerSize - 14; // 14 bytes for eth headers if needed
 
 		const uint8_t* srcData = (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff);
 		uint32_t totalWireBytes = 0;
