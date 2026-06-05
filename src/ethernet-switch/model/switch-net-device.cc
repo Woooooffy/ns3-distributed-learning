@@ -104,7 +104,7 @@ P4SwitchNetDevice::GetTypeId()
 
             .AddAttribute("QueueMaxSize",
                           "Maximum number of packets held in each per-port queue.",
-                          UintegerValue(5000),
+                          UintegerValue(50000),
                           MakeUintegerAccessor(&P4SwitchNetDevice::m_queueMaxSize),
                           MakeUintegerChecker<uint32_t>(1))
 
@@ -164,7 +164,7 @@ P4SwitchNetDevice::P4SwitchNetDevice()
       m_node(nullptr),
       m_ifIndex(0),
       m_mtu(1500),
-      m_queueMaxSize(5000)
+      m_queueMaxSize(50000)
 {
     NS_LOG_FUNCTION_NOARGS();
 }
