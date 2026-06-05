@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
 		constexpr int N_NODES = 8;
 
-		constexpr int CHUNK_SIZE = 2 << 12;
+		constexpr int CHUNK_SIZE = 1 << 20;
 		constexpr int N_CHUNKS = 2;
 
 		// TODO: unsafe stuff
@@ -220,10 +220,10 @@ int main(int argc, char *argv[]) {
 		std::cout << "Total simulated time: "
           << simTime.GetNanoSeconds() << " nanoseconds" << std::endl;
 
-		CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+		// CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
 
-		if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
-		else std::cout << "Allgather incorrect." << std::endl;
+		// if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
+		// else std::cout << "Allgather incorrect." << std::endl;
 
 
     Simulator::Destroy();

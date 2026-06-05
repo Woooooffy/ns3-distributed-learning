@@ -38,7 +38,7 @@ SwitchedEthernetHelper::SwitchedEthernetHelper()
     m_channelFactory.SetTypeId("ns3::SwitchedEthernetChannel");
 	m_deviceFactory.SetTypeId("ns3::SwitchedEthernetHostDevice");
 	m_queueFactory.SetTypeId("ns3::DropTailQueue<Packet>");
-    m_queueFactory.Set("MaxSize", QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS, 500)));
+    m_queueFactory.Set("MaxSize", QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS, 5000)));
 }
 
 void
