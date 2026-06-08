@@ -94,7 +94,7 @@ P4SwitchNetDevice::GetTypeId()
                 "Maximum Transmission Unit.",
                 UintegerValue(1500),
                 MakeUintegerAccessor(&P4SwitchNetDevice::SetMtu, &P4SwitchNetDevice::GetMtu),
-                MakeUintegerChecker<uint32_t>())
+                MakeUintegerChecker<uint16_t>())
 
 						.AddAttribute("QueueTypeId",
               "TypeId of the queue type in use",
