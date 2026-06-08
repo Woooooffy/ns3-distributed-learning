@@ -5,10 +5,10 @@ module group(){
 	for _ in (0, 1){
 		link n0 n1 bandwidth=25[GBps] latency=700[ns];
 		link n2 n3 bandwidth=25[GBps] latency=700[ns];
-		link n01 n3 bandwidth=25[GBps] latency=700[ns];
+		link n1 n3 bandwidth=25[GBps] latency=700[ns];
 	}
 	link n0 n2 bandwidth=25[GBps] latency=700[ns];
-	link n0 n13 bandwidth=25[GBps] latency=700[ns];
+	link n0 n3 bandwidth=25[GBps] latency=700[ns];
 	link n2 n1 bandwidth=25[GBps] latency=700[ns];
 }
 
