@@ -21,5 +21,5 @@ module main(){
 		link c1.n2 c2.n2 bandwidth=25[GBps] latency=700[ns];
 	}
 	link c1.n1 c2.n1 bandwidth=25[GBps] latency=700[ns];
-	link c1.n2 c2.n2 bandwidth=25[GBps] latency=700[ns];
+	link c1.n3 c2.n3 bandwidth=25[GBps] latency=700[ns];
 }

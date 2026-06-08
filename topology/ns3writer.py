@@ -175,6 +175,20 @@ class NS3Writer:
 				f"{container_expr}.Get(1)"
 			)
 
+			# p2p links are full-duplex, so the same pair of devices also
+			# serves the reverse direction (dst -> src)
+			self._emit_push_send_device(
+				dst_expr,
+				insn.src,
+				f"{container_expr}.Get(1)"
+			)
+
+			self._emit_push_recv_device(
+				src_expr,
+				insn.dst,
+				f"{container_expr}.Get(0)"
+			)
+
 			# a single p2p link replaces what used to be 2 unidirectional CSMA
 			# links, so register both peers' addresses here
 			self.emit(
