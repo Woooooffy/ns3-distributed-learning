@@ -1,12 +1,20 @@
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
-#include "ns3/csma-module.h"
+#include "ns3/point-to-point-module.h"
 #include "ns3/ethernet-switch-module.h"
 #include "ns3/distributed-training-module.h"
+        
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <array>
+#include <map>
 
 using namespace ns3;
 
 int main(int argc, char *argv[]) {
+		NS_LOG_COMPONENT_DEFINE("DGX1_TEST");
     NodeContainer gpunodes;
     NodeContainer swtches;
     P4Helper sw_helper;
@@ -208,8 +216,8 @@ int main(int argc, char *argv[]) {
     const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_DSL_test.txt";
 	std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test.xml");
 
-		constexpr int N_NODES = 8;
-        constexpr int N_CHUNKS = 6;
+//		constexpr int N_NODES = 8;
+		constexpr int N_CHUNKS = 6;
 		constexpr int CHUNK_SIZE = 3 * (1 << 10) / N_CHUNKS;
 
 		PacketSocketHelper packetSocket;
@@ -242,10 +250,10 @@ int main(int argc, char *argv[]) {
 		std::cout << "Total simulated time: "
           << simTime.GetNanoSeconds() << " nanoseconds" << std::endl;
 
-		// CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+		CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
 
-		// if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
-		// else std::cout << "Allgather incorrect." << std::endl;
+		if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
+		else std::cout << "Allgather incorrect." << std::endl;
 
     Simulator::Destroy();
     NS_LOG_UNCOND("Done simulation");
