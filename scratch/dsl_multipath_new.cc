@@ -14,6 +14,7 @@
 using namespace ns3;
 
 int main(int argc, char *argv[]) {
+		#ifdef FLOW_ID_TEST
 		NS_LOG_COMPONENT_DEFINE("DSL_TEST");
 //		LogComponentEnable("CustomSwitchImpl", LOG_LEVEL_ALL);
 		LogComponentEnable("DSL_TEST", LOG_LEVEL_ALL);
@@ -312,5 +313,6 @@ int main(int argc, char *argv[]) {
 
     Simulator::Run();
     Simulator::Destroy();
+		#endif
     return 0;
 }
