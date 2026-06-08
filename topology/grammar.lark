@@ -49,13 +49,13 @@ attr: NAME "=" value
 
 // ----------------- VALUES -----------------
 value: NUMBER "[" UNIT "]"
-		 | NUMBER 					
+		 | NUMBER
 		 | NAME
-     | var 
+     | var
 
 var: "{" NAME "}"
 
-UNIT: "Gbps" | "Mbps" | "Kbps" | "ns" | "us" | "ms"
+UNIT: "Gbps" | "Mbps" | "Kbps" | "GBps" | "MBps" | "KBps" | "ns" | "us" | "ms"
 
 // ----------------- TOKENS -----------------
 %import common.CNAME -> NAME

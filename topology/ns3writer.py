@@ -211,6 +211,11 @@ class NS3Writer:
 				f"{container_expr}.Get(0)"
 			)
 
+			self._emit_loop_push_peer_addr(
+				insn.src,
+				f"{container_expr}.Get(0)"
+			)
+
 			self._record_host_attachment(
 				insn.dst,
 				insn.src,
@@ -236,6 +241,11 @@ class NS3Writer:
 
 			self._emit_loop_push_peer_device(
 				dst_expr,
+				insn.dst,
+				f"{container_expr}.Get(0)"
+			)
+
+			self._emit_loop_push_peer_addr(
 				insn.dst,
 				f"{container_expr}.Get(0)"
 			)
@@ -285,6 +295,27 @@ class NS3Writer:
 
 		self.emit(
 			f"DynamicCast<GPU>({gpu_expr})->PushRecvPeerDevice(i, {dev_expr});"
+		)
+
+		self.indent -= 1
+		self.emit("}")
+
+		self.indent -= 1
+		self.emit("}")
+
+		self.emit("")
+
+	def _emit_loop_push_peer_addr(self, gpu_name, dev_expr):
+		gpu_idx = self.gpus[gpu_name]
+
+		self.emit(f"for (int i = 0; i < {len(self.gpus)}; ++i)" + "{")
+		self.indent += 1
+
+		self.emit(f"if (i != {gpu_idx})" + "{")
+		self.indent += 1
+
+		self.emit(
+			f"DynamicCast<GPU>(gpunodes.Get(i))->PushPeerAddr({gpu_idx}, {dev_expr}->GetAddress());"
 		)
 
 		self.indent -= 1
