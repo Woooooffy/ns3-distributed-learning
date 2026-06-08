@@ -26,7 +26,7 @@ class NS3Writer:
 		for insn in self.insns:
 			self._handle_insn(insn)
 
-		self._emit_forwarding_setup()	
+		self._emit_forwarding_setup()
 		self._emit_gpu_setup()
 		self._emit_main_end()
 
@@ -265,10 +265,10 @@ class NS3Writer:
 			raise RuntimeError("Unsupported link type")
 
 		self.container_uid += 1
-		
+
 	def _emit_push_send_device(self, src_expr, dst_name, dev_expr):
 		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerDevice({self.gpus[dst_name]}, {dev_expr});")
-	
+
 	def _emit_push_recv_device(self, dst_expr, src_name, dev_expr):
 		self.emit(f"DynamicCast<GPU>({dst_expr})->PushRecvPeerDevice({self.gpus[src_name]}, {dev_expr});")
 
@@ -292,7 +292,7 @@ class NS3Writer:
 
 		self.indent -= 1
 		self.emit("}")
-		
+
 		self.emit("")
 	# --------------------------------------------------
 	# Switch handling
@@ -331,7 +331,7 @@ class NS3Writer:
 					)
 
 			self.emit("")
-	
+
 	# --------------------------------------------------
 	# GPU handling
 	# --------------------------------------------------

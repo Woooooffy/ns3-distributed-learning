@@ -39,7 +39,7 @@ PointToPointNetDevice::GetTypeId()
                           UintegerValue(DEFAULT_MTU),
                           MakeUintegerAccessor(&PointToPointNetDevice::SetMtu,
                                                &PointToPointNetDevice::GetMtu),
-                          MakeUintegerChecker<uint16_t>())
+                          MakeUintegerChecker<uint32_t>())
             .AddAttribute("Address",
                           "The MAC address of this device.",
                           Mac48AddressValue(Mac48Address("ff:ff:ff:ff:ff:ff")),

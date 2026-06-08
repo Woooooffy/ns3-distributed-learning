@@ -49,7 +49,7 @@ SwitchedEthernetHostDevice::GetTypeId()
                           UintegerValue(1500),
                           MakeUintegerAccessor(&SwitchedEthernetHostDevice::SetMtu,
                                                &SwitchedEthernetHostDevice::GetMtu),
-                          MakeUintegerChecker<uint16_t>())
+                          MakeUintegerChecker<uint32_t>())
 			.AddAttribute("TxQueue",
                           "A queue to use as the transmit queue in the device.",
                           PointerValue(),
