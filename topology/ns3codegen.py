@@ -142,7 +142,7 @@ class NS3CodeGenerator():
 		if src in self.switches or dst in self.switches:
 			type = "eth"
 		else:
-			type = "default"
+			type = "p2p"
 		mtu = insn.attrs["mtu"] if "mtu" in insn.attrs else 9000
 		attr = (insn.attrs["latency"], insn.attrs["bandwidth"], mtu, type) 
 		helper = self.link_helpers.get(attr)

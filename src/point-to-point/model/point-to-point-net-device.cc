@@ -647,6 +647,8 @@ PointToPointNetDevice::PppToEther(uint16_t proto)
         return 0x0800; // IPv4
     case 0x0057:
         return 0x86DD; // IPv6
+    case 0x9500:
+        return 0x9500; // COLLECTIVES_PROTOCOL (passthrough, not a real PPP code)
     default:
         NS_ASSERT_MSG(false, "PPP Protocol number not defined!");
     }
@@ -663,6 +665,8 @@ PointToPointNetDevice::EtherToPpp(uint16_t proto)
         return 0x0021; // IPv4
     case 0x86DD:
         return 0x0057; // IPv6
+    case 0x9500:
+        return 0x9500; // COLLECTIVES_PROTOCOL (passthrough, not a real PPP code)
     default:
         NS_ASSERT_MSG(false, "PPP Protocol number not defined!");
     }

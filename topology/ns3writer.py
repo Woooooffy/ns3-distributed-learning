@@ -110,6 +110,8 @@ class NS3Writer:
 		match insn.type:
 			case "eth":
 				helper_name = "SwitchedEthernet"
+			case "p2p":
+				helper_name = "PointToPoint"
 			case "default":
 				helper_name = "Csma"
 			case _:
@@ -118,7 +120,12 @@ class NS3Writer:
 		self.emit(f"{helper_name}Helper link_helper{hid};")
 		self.emit(f"link_helper{hid}.SetDeviceAttribute(\"Mtu\", UintegerValue({insn.mtu}));")
 		self.emit(f'link_helper{hid}.SetChannelAttribute("Delay", StringValue("{delay_val}{delay_unit}"));')
-		self.emit(f'link_helper{hid}.SetChannelAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
+		if insn.type == "p2p":
+			# PointToPointNetDevice (unlike Csma/SwitchedEthernet) exposes DataRate
+			# as a device attribute, not a channel attribute
+			self.emit(f'link_helper{hid}.SetDeviceAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
+		else:
+			self.emit(f'link_helper{hid}.SetChannelAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
 		self.emit("")
 
 	# --------------------------------------------------
@@ -140,20 +147,16 @@ class NS3Writer:
 		hid = insn.link_helper
 
 		# --------------------------------------------------
-		# GPU <-> GPU : still CSMA
+		# GPU <-> GPU : point-to-point
 		# --------------------------------------------------
 
 		if src_type == "gpu" and dst_type == "gpu":
-
-			self.emit(f"NodeContainer nc{hid}_{self.container_uid};")
-			self.emit(f"nc{hid}_{self.container_uid}.Add({src_expr});")
-			self.emit(f"nc{hid}_{self.container_uid}.Add({dst_expr});")
 
 			container_expr = f"devs{hid}_{self.container_uid}"
 
 			self.emit(
 				f"NetDeviceContainer {container_expr} = "
-				f"link_helper{hid}.Install(nc{hid}_{self.container_uid});"
+				f"link_helper{hid}.Install({src_expr}, {dst_expr});"
 			)
 
 			self.emit("")
@@ -171,6 +174,19 @@ class NS3Writer:
 				insn.src,
 				f"{container_expr}.Get(1)"
 			)
+
+			# a single p2p link replaces what used to be 2 unidirectional CSMA
+			# links, so register both peers' addresses here
+			self.emit(
+				f"DynamicCast<GPU>({src_expr})->PushPeerAddr("
+				f"{self.gpus[insn.dst]}, ({container_expr}.Get(1))->GetAddress());"
+			)
+			self.emit(
+				f"DynamicCast<GPU>({dst_expr})->PushPeerAddr("
+				f"{self.gpus[insn.src]}, ({container_expr}.Get(0))->GetAddress());"
+			)
+
+			self.emit("")
 
 		# --------------------------------------------------
 		# GPU <-> Switch
@@ -256,10 +272,6 @@ class NS3Writer:
 	def _emit_push_recv_device(self, dst_expr, src_name, dev_expr):
 		self.emit(f"DynamicCast<GPU>({dst_expr})->PushRecvPeerDevice({self.gpus[src_name]}, {dev_expr});")
 
-	def _emit_push_peer_addr(self, src_expr, src_name, dst_name):
-		dev_expr = f"{self.container_map[src_name, dst_name]}.Get(1)"
-		self.emit(f"DynamicCast<GPU>({src_expr})->PushSendPeerAddr({self.gpus[dst_name]}, ({dev_expr})->GetAddress());")
-	
 	def _emit_loop_push_peer_device(self, gpu_expr, gpu_name, dev_expr):
 		self.emit(f"for (int i = 0; i < {len(self.gpus)}; ++i)" + "{")
 		self.indent += 1
