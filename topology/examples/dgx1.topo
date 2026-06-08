@@ -1,0 +1,16 @@
+module group(){
+	for i in (0, 3){
+		node n{i} type=gpu;
+	}
+	for i in (0, 1){
+		link n0 n1 bandwidth=25[GBps] latency=700[ns];
+
+	}
+}
+
+
+module main(){
+	use group() as c1;
+	use group() as c2;
+
+}
