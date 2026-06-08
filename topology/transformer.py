@@ -184,12 +184,10 @@ class TopoTransformer(Transformer):
 
 	def use_stmt(self, items) -> Insn:
 		submodule_name = items[0]
-		if len(items) > 2:
-			args = items[1]
-			name = items[2]
-		else:
-			args = None
-			name = items[1]
+		args = items[1]
+		name = items[2]
+		if args is None:
+			args = []
 		return SubmoduleInsn(name, submodule_name, *args)
 	
 	def for_stmt(self, items) -> Insn:	
