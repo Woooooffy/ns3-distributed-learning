@@ -269,7 +269,8 @@ int main(int argc, char *argv[]) {
 
 //		constexpr int N_NODES = 8;
 		constexpr int N_CHUNKS = 18;
-		constexpr int CHUNK_SIZE = 3 * (1 << 20) / N_CHUNKS;
+		constexpr int CHUNK_SIZE = 3 * (1 << 14) / N_CHUNKS;
+    constexpr bool CORRECTNESS_CHECK = true;
 
 		PacketSocketHelper packetSocket;
 		packetSocket.Install(gpunodes);
@@ -291,21 +292,27 @@ int main(int argc, char *argv[]) {
 		CollectivesApplicationHelper app_helper;
 		app_helper.SetAttribute("DataType", EnumValue(DataType::INT32));
 		app_helper.SetAttribute("ChunkSize", UintegerValue(CHUNK_SIZE));
-    app_helper.SetAttribute("CorrectnessCheck", BooleanValue(true));
+    app_helper.SetAttribute("CorrectnessCheck", BooleanValue(CORRECTNESS_CHECK));
 		ApplicationContainer apps = app_helper.Install<GPU>(gpunodes);
 
+    CollectiveTester tester(apps, true, logtxt);
+    if (CORRECTNESS_CHECK) {
+		  tester.SetupAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+    }
+    else{
+      NS_LOG_UNCOND("Skipping correctness check.")
+    }
 
-		CollectiveTester tester(apps, true, logtxt);
-		tester.SetupAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
     Simulator::Run();
 		Time simTime = Simulator::Now();
 		std::cout << "Total simulated time: "
           << simTime.GetNanoSeconds() << " nanoseconds" << std::endl;
 
-//		CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
-
-	//	if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
-	//	else std::cout << "Allgather incorrect." << std::endl;
+    if (CORRECTNESS_CHECK) {
+      CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+      if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
+      else std::cout << "Allgather incorrect." << std::endl;
+    }
 
     Simulator::Destroy();
     NS_LOG_UNCOND("Done simulation");
