@@ -167,13 +167,15 @@ namespace ns3 {
 			}
 			// copy/reduce fragment into destination at the byte offset encoded in the header
 			std::pair<uint16_t, uint16_t> dstInfo(hdr.GetDstBuf(), hdr.GetDstOff());
-			uint8_t* dst = (uint8_t*) m_app->GetBufferPtr(dstInfo.first, dstInfo.second);
-			bool isRrc = m_pendingRecvByBufferRegion.contains(dstInfo) &&
-			             m_pendingRecvByBufferRegion[dstInfo].op == MSCCL_RECV_REDUCE_COPY;
-			if (isRrc){
-				ReduceAdd(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize, m_dataType);
-			} else {
-				memcpy(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize);
+			if (m_app->GetCorrectnessCheck()){
+				uint8_t* dst = (uint8_t*) m_app->GetBufferPtr(dstInfo.first, dstInfo.second);
+				bool isRrc = m_pendingRecvByBufferRegion.contains(dstInfo) &&
+				             m_pendingRecvByBufferRegion[dstInfo].op == MSCCL_RECV_REDUCE_COPY;
+				if (isRrc){
+					ReduceAdd(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize, m_dataType);
+				} else {
+					memcpy(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize);
+				}
 			}
 
 			// accumulate received bytes; complete only when the full logical transfer is done
@@ -265,7 +267,9 @@ namespace ns3 {
 		uint32_t headerSize = templateHdr.GetSerializedSize();
 		uint32_t maxPayload = mtu - headerSize - 14; // 14 bytes for eth headers if needed
 
-		const uint8_t* srcData = (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff);
+		const uint8_t* srcData = m_app->GetCorrectnessCheck()
+		    ? (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff)
+		    : nullptr;
 		uint32_t totalWireBytes = 0;
 		uint32_t offset = 0;
 		while (offset < totalBytes){
@@ -280,7 +284,9 @@ namespace ns3 {
 		offset = 0;
 		while (offset < totalBytes){
 			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
-			Ptr<Packet> pkt = Create<ns3::Packet>(srcData + offset, fragPayload);
+			Ptr<Packet> pkt = srcData
+			    ? Create<ns3::Packet>(srcData + offset, fragPayload)
+			    : Create<ns3::Packet>(fragPayload);
 			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
 			pkt->AddHeader(fragHdr);
 			offset += fragPayload;
@@ -384,7 +390,14 @@ namespace ns3 {
 					"ChunkSize", "Number of elements in a chunk",
 				UintegerValue(1024),
 				MakeUintegerAccessor(&CollectivesApplication::m_currChunkSize),
-				MakeUintegerChecker<uint32_t>());
+				MakeUintegerChecker<uint32_t>())
+				.AddAttribute(
+					"CorrectnessCheck",
+					"When true, perform actual memcpy and reduce operations for correctness verification. "
+					"Set false for large-chunk simulation where data values are irrelevant.",
+					BooleanValue(false),
+					MakeBooleanAccessor(&CollectivesApplication::m_correctnessCheck),
+					MakeBooleanChecker());
 		return tid;
 	}
 
@@ -403,6 +416,14 @@ namespace ns3 {
 
 	void CollectivesApplication::SetCurrChunkSize(uint32_t chunksize){
 		m_currChunkSize = chunksize;
+	}
+
+	void CollectivesApplication::SetCorrectnessCheck(bool enable){
+		m_correctnessCheck = enable;
+	}
+
+	bool CollectivesApplication::GetCorrectnessCheck() const {
+		return m_correctnessCheck;
 	}
 
 	Address CollectivesApplication::GetPeerAddr(int16_t peer, int ind){
@@ -463,7 +484,8 @@ namespace ns3 {
 		uint32_t bytes = nElems * DataType::GetSizeBytes(m_dataType);
 		switch (op){
 			case MSCCL_LOCAL_COPY:
-				memcpy(GetBufferPtr(dstbuf, dstoff), GetBufferPtr(srcbuf, srcoff), bytes);
+				if (m_correctnessCheck)
+					memcpy(GetBufferPtr(dstbuf, dstoff), GetBufferPtr(srcbuf, srcoff), bytes);
 				break;
 			default:
 				NS_FATAL_ERROR("Not implemented.");

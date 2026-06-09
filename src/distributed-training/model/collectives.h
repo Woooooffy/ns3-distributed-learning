@@ -141,6 +141,8 @@ namespace ns3 {
 			void* GetBufferPtrRawBytes(uint16_t buf, size_t byte_offset);
 			void* GetBufferPtr(uint16_t buf, int16_t offset);
 			void DumpBuffer(DataBuffer* buf, std::ostream& log);
+			void SetCorrectnessCheck(bool enable);
+			bool GetCorrectnessCheck() const;
 			#ifdef FLOW_ID_TEST
 			// void SetFlowIdTableForChannel(std::map<std::pair<int, int>, uint32_t>*, int channel);
 			// void SetFlowIdTableForAllChannels(std::map<std::pair<int, int>, uint32_t>* table);
@@ -166,6 +168,7 @@ namespace ns3 {
 			uint32_t m_currChunkSize;
 			uint32_t m_currWorkId = 0;
 			uint32_t m_currIter = 0;
+			bool m_correctnessCheck = false;
 			int m_port = 5000;
 			std::map<int, MscclChannel> m_channels;
 			// std::map<int16_t, Address> m_peerAddr;

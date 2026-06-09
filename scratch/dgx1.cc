@@ -291,6 +291,7 @@ int main(int argc, char *argv[]) {
 		CollectivesApplicationHelper app_helper;
 		app_helper.SetAttribute("DataType", EnumValue(DataType::INT32));
 		app_helper.SetAttribute("ChunkSize", UintegerValue(CHUNK_SIZE));
+    app_helper.SetAttribute("CorrectnessCheck", BooleanValue(true));
 		ApplicationContainer apps = app_helper.Install<GPU>(gpunodes);
 
 
