@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
 	std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test.xml");
 
 //		constexpr int N_NODES = 8;
-		constexpr int N_CHUNKS = 6;
+		constexpr int N_CHUNKS = 18;
 		constexpr int CHUNK_SIZE = 3 * (1 << 20) / N_CHUNKS;
 
 		PacketSocketHelper packetSocket;
@@ -301,10 +301,10 @@ int main(int argc, char *argv[]) {
 		std::cout << "Total simulated time: "
           << simTime.GetNanoSeconds() << " nanoseconds" << std::endl;
 
-		// CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+//		CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
 
-		// if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
-		// else std::cout << "Allgather incorrect." << std::endl;
+	//	if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
+	//	else std::cout << "Allgather incorrect." << std::endl;
 
     Simulator::Destroy();
     NS_LOG_UNCOND("Done simulation");
