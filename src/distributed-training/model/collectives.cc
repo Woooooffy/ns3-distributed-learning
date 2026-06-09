@@ -99,6 +99,37 @@ namespace ns3 {
 		}
 	}
 
+	static void ReduceAdd(void* dst, const void* src, uint32_t bytes, DataType::Type dtype){
+		switch (dtype){
+			case DataType::INT32: {
+				int32_t* d = static_cast<int32_t*>(dst);
+				const int32_t* s = static_cast<const int32_t*>(src);
+				for (uint32_t i = 0; i < bytes / sizeof(int32_t); ++i) d[i] += s[i];
+				break;
+			}
+			case DataType::INT16: {
+				int16_t* d = static_cast<int16_t*>(dst);
+				const int16_t* s = static_cast<const int16_t*>(src);
+				for (uint32_t i = 0; i < bytes / sizeof(int16_t); ++i) d[i] += s[i];
+				break;
+			}
+			case DataType::FLOAT32: {
+				float* d = static_cast<float*>(dst);
+				const float* s = static_cast<const float*>(src);
+				for (uint32_t i = 0; i < bytes / sizeof(float); ++i) d[i] += s[i];
+				break;
+			}
+			case DataType::FLOAT64: {
+				double* d = static_cast<double*>(dst);
+				const double* s = static_cast<const double*>(src);
+				for (uint32_t i = 0; i < bytes / sizeof(double); ++i) d[i] += s[i];
+				break;
+			}
+			default:
+				NS_FATAL_ERROR("Unsupported data type for reduction");
+		}
+	}
+
 	void MscclChannel::RecvCallback(Ptr<Socket> sock){
 		NS_LOG_FUNCTION(this);
 		while (sock->GetRxAvailable() > 0){
@@ -134,10 +165,16 @@ namespace ns3 {
 				free(tmp);
 				continue;
 			}
-			// copy fragment into destination at the byte offset encoded in the header
+			// copy/reduce fragment into destination at the byte offset encoded in the header
 			std::pair<uint16_t, uint16_t> dstInfo(hdr.GetDstBuf(), hdr.GetDstOff());
 			uint8_t* dst = (uint8_t*) m_app->GetBufferPtr(dstInfo.first, dstInfo.second);
-			memcpy(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize);
+			bool isRrc = m_pendingRecvByBufferRegion.contains(dstInfo) &&
+			             m_pendingRecvByBufferRegion[dstInfo].op == MSCCL_RECV_REDUCE_COPY;
+			if (isRrc){
+				ReduceAdd(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize, m_dataType);
+			} else {
+				memcpy(dst + hdr.GetFragByteOffset(), tmp + tmp_offset, recvSize);
+			}
 
 			// accumulate received bytes; complete only when the full logical transfer is done
 			m_recvBytesAccum[dstInfo] += recvSize;
@@ -157,12 +194,11 @@ namespace ns3 {
 				auto& cur = m_pendingRecvByBufferRegion[dstInfo];
 				switch (cur.op){
 					case MSCCL_RECV:
+					case MSCCL_RECV_REDUCE_COPY:
 						Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, m_app, cur.bid, cur.sid);
-							break;
-						// case MSCCL_RECV_COPY_SEND:
-						// case MSCCL_RECV_REDUCE_SEND:
-						default:
-							NS_FATAL_ERROR("not implemented");
+						break;
+					default:
+						NS_FATAL_ERROR("not implemented");
 				}
 				m_pendingRecvByBufferRegion.erase(dstInfo);
 				free(tmp);
@@ -282,8 +318,14 @@ namespace ns3 {
 	}
 
 	void MscclChannel::RecvRedCp(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff){
-		NS_FATAL_ERROR("RecvRedCp not yet implemented");
+		if (dstoff < 0) NS_FATAL_ERROR("Invalid offset");
 		PendingTransfer recv(bid, sid, nElems * DataType::GetSizeBytes(m_dataType), MSCCL_RECV_REDUCE_COPY, 0, -1, dstbuf, dstoff);
+		std::pair<uint16_t, uint16_t> dstinfo(dstbuf, static_cast<uint16_t>(dstoff));
+		if (m_recvReadyByBufferRegion.contains(dstinfo) && m_recvReadyByBufferRegion[dstinfo] == true){
+			Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, m_app, bid, sid);
+			m_recvReadyByBufferRegion[dstinfo] = false;
+			return;
+		}
 		SetPendingRecv(dstbuf, dstoff, recv);
 	}
 
