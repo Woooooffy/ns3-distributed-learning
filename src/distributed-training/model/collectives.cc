@@ -521,12 +521,10 @@ namespace ns3 {
 		tbState->flag = (uint64_t) COMPUTE_FLAG(m_currWorkId, m_currIter, tbState->global_step); // flag update
 		tbState->global_step++;
 		Simulator::ScheduleNow(&CollectivesApplication::TryScheduleNextStep, this, bid);
-		if (trans->has_dependence){
-			for (int8_t depTB : tbState->tryReschedule){
-				Simulator::ScheduleNow(&CollectivesApplication::TryScheduleNextStep, this, depTB);
-			}
-			tbState->tryReschedule.clear();
+		for (int8_t depTB : tbState->tryReschedule){
+			Simulator::ScheduleNow(&CollectivesApplication::TryScheduleNextStep, this, depTB);
 		}
+		tbState->tryReschedule.clear();
 	}
 
 	void CollectivesApplication::InterpretAlgo(){
