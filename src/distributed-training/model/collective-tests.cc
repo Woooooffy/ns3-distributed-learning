@@ -14,6 +14,7 @@ namespace ns3{
 			Ptr<CollectivesApplication> app = DynamicCast<CollectivesApplication>(m_apps.Get(i));
 			app->AllocBuffer(input_elts, app->GetSrcBuffer());
 			app->AllocBuffer(output_elts, app->GetDstBuffer());
+			memset(app->GetDstBuffer()->dataBuffer, 0, output_elts * sizeof(int32_t));
 			app->AllocBuffer(scratch_elts, app->GetScratchBuffer());
 			int* ptr = (int*) app->GetSrcBuffer()->dataBuffer;
 			int* outptr = (int*) app->GetDstBuffer()->dataBuffer;

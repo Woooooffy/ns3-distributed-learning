@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
 		  tester.SetupAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
     }
     else{
-      NS_LOG_UNCOND("Skipping correctness check.")
+      NS_LOG_UNCOND("Skipping correctness check.");
     }
 
     Simulator::Run();
