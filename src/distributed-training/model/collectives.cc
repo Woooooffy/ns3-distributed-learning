@@ -513,7 +513,7 @@ namespace ns3 {
 
 	void CollectivesApplication::StepCompletionCallback(int8_t bid, int16_t sid){
 		// TransferState* tState = GetTransferState(bid, sid);
-		mscclTransfer* trans = &m_algo->mscclTBs[bid].transfers[sid];
+		// mscclTransfer* trans = &m_algo->mscclTBs[bid].transfers[sid];
 		// update TBState
 		TBState* tbState = &m_TBStates[bid];
 		tbState->busy = false;
