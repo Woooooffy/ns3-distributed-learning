@@ -19,7 +19,7 @@
 #include <fstream>
 #include <iostream>
 
-// #define FLOW_ID_TEST 
+#define FLOW_ID_TEST
 // for temporary testing with inserting flow ID here
 // to be disabled when such info properly encoded in xml
 
@@ -27,7 +27,7 @@
 
 /*
 TODO: model work index & iter for sequences of ops & reuse of algorithm over larger grid
-Note: msccl uses (work_index, iter, step) flag for dependency tracking, where step is tracked UNIVERSALLY across all TBs- 
+Note: msccl uses (work_index, iter, step) flag for dependency tracking, where step is tracked UNIVERSALLY across all TBs-
 if TB1 step0 and TB2 step0 both have same dependiences on TB0 step2, and TB0 steps have no dependencies on other TBs,
 then TB1 step0 and TB2 step0 both have universal step id 3.
 this is reflected by the flags here and global_step vars. Local step is also used for map keys; sid when used for indexing/key refers to local step
@@ -43,7 +43,7 @@ namespace ns3 {
 		bool busy;
 		std::unordered_set<int8_t> tryReschedule; // TBs that should try rescheduling when this TB reaches flag
 		TBState(): bid(-1), global_step(0), local_step(0), flag(-1), busy(false){}
-		TBState(int8_t id): bid(id), global_step(0), local_step(0), 
+		TBState(int8_t id): bid(id), global_step(0), local_step(0),
       flag(-1), busy(false){}
 	};
 
@@ -52,7 +52,7 @@ namespace ns3 {
 		int16_t nPendingDeps;
 		std::unordered_set<int8_t> dependentTBs; // needing retry scheduling
 		TransferState(): firstPendingDep(-1), nPendingDeps(-1){}
-		TransferState(int16_t firstDep, int16_t nDeps): firstPendingDep(firstDep), nPendingDeps(nDeps){} 
+		TransferState(int16_t firstDep, int16_t nDeps): firstPendingDep(firstDep), nPendingDeps(nDeps){}
 	}; */
 
 	struct PendingTransfer{
@@ -66,7 +66,7 @@ namespace ns3 {
 		uint16_t dstBuf;
 		int16_t dstOffset;
 		PendingTransfer(): bid(-1), sid(-1), receivedBytes(0), pendingBytes(0), op(-1), srcBuf(3), srcOffset(-1), dstBuf(3), dstOffset(-1){}
-		PendingTransfer(int8_t bId, int16_t sId, uint32_t bytes, int8_t Op, uint16_t srcbuf, uint16_t srcoff, uint16_t dstbuf, int16_t dstoff): bid(bId), sid(sId), 
+		PendingTransfer(int8_t bId, int16_t sId, uint32_t bytes, int8_t Op, uint16_t srcbuf, uint16_t srcoff, uint16_t dstbuf, int16_t dstoff): bid(bId), sid(sId),
 										receivedBytes(0), pendingBytes(bytes), op(Op), srcBuf(srcbuf), srcOffset(srcoff), dstBuf(dstbuf), dstOffset(dstoff){}
 	};
 
@@ -83,27 +83,27 @@ namespace ns3 {
 			//bool CanAcceptConnection(Ptr<Socket> sock, const Address& from);
 			void SendCallback(Ptr<Socket> sock, uint32_t bytes);
 			void RecvCallback(Ptr<Socket> sock);
-			
+
 			inline void SetPendingRecv(uint16_t dstBuf, int16_t dstOff, PendingTransfer recv);
 			inline void PushPendingSend(Ptr<Socket> sendpeer, PendingTransfer send);
 			void Send(int8_t bid, int16_t sid, int16_t sendPeer, uint32_t nElems, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff);
 			void Recv(int8_t bid, int16_t sid, int16_t recvPeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff);
 			void RecvCpSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems);
-			void RecvRedSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems); 
+			void RecvRedSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems);
 			void RecvRedCp(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff);
 			void RecvRedCpSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems);
 			#ifdef FLOW_ID_TEST
 			uint32_t GetFlowId(int src, int dst);
 			void SetFlowIdTable(std::map<std::pair<int, int>, uint32_t>* table);
 			#endif
-	
+
 			void Close();
 		private:
 			int8_t m_id;
 			DataType::Type m_dataType;
 			TypeId m_socketType;
 			Ptr<CollectivesApplication> m_app;
-			Ptr<Socket> m_listenSocket;	
+			Ptr<Socket> m_listenSocket;
 			std::map<int16_t, Ptr<Socket>> m_sendPeerSockets;
 			std::map<Ptr<Socket>, int16_t> m_recvSocketPeers;
 			// std::map<int16_t, std::queue<PendingTransfer>> m_pendingRecvs;

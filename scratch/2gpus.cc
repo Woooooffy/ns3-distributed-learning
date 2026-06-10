@@ -14,12 +14,12 @@
 using namespace ns3;
 
 int main(int argc, char *argv[]) {
-		NS_LOG_COMPONENT_DEFINE("DGX1_TEST"); 
+		NS_LOG_COMPONENT_DEFINE("DGX1_TEST");
     NodeContainer gpunodes;
     NodeContainer swtches;
     P4Helper sw_helper;
     sw_helper.SetDeviceAttribute("EnableCustomImpl", BooleanValue(true));
-    
+
     gpunodes.Create<GPU>(2);
     swtches.Create(0);
     PointToPointHelper link_helper0;
@@ -27,28 +27,29 @@ int main(int argc, char *argv[]) {
     link_helper0.SetChannelAttribute("Delay", StringValue("700ns"));
     link_helper0.SetDeviceAttribute("DataRate", StringValue("25GBps"));
 		link_helper0.SetQueue("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("50000p")));
-    
+
     NetDeviceContainer devs0_0 = link_helper0.Install(gpunodes.Get(0), gpunodes.Get(1));
-    
+
     DynamicCast<GPU>(gpunodes.Get(0))->PushSendPeerDevice(1, devs0_0.Get(0));
     DynamicCast<GPU>(gpunodes.Get(1))->PushRecvPeerDevice(0, devs0_0.Get(1));
     DynamicCast<GPU>(gpunodes.Get(1))->PushSendPeerDevice(0, devs0_0.Get(1));
     DynamicCast<GPU>(gpunodes.Get(0))->PushRecvPeerDevice(1, devs0_0.Get(0));
     DynamicCast<GPU>(gpunodes.Get(0))->PushPeerAddr(1, (devs0_0.Get(1))->GetAddress());
     DynamicCast<GPU>(gpunodes.Get(1))->PushPeerAddr(0, (devs0_0.Get(0))->GetAddress());
-    
-    
+
+
     /*
         n0 -> n1: devs0_0
     */
-    
+
     const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_DSL_test.txt";
 //		std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test.xml");
-		std::string XML_ALGO = "/data/scratch/wangyj05/msccl_xml/single_instance/Allgather_n_2_-Line_n_2_-steps_1.xml"; 
+		std::string XML_ALGO = "/data/scratch/wangyj05/msccl_xml/single_instance/Allgather_n_2_-Line_n_2_-steps_1.xml";
 
 //		constexpr int N_NODES = 8;
 		constexpr int N_CHUNKS = 1;
-		constexpr int CHUNK_SIZE = 1 << 10 / N_CHUNKS;
+    // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
+		constexpr int CHUNK_SIZE = (1 << 10) / N_CHUNKS;
     constexpr bool CORRECTNESS_CHECK = true;
 
 		PacketSocketHelper packetSocket;

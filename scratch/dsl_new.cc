@@ -138,8 +138,10 @@ int main(int argc, char *argv[]) {
 		std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test1.xml");
 
 		constexpr int N_NODES = 8;
-
-		constexpr int CHUNK_SIZE = 1 << 19;
+        constexpr DataType::Type dtype = DataType::INT32;
+        constexpr int INPUT_BYTES = 1 << 20;
+		constexpr int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
+        // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
 		constexpr int N_CHUNKS = 2;
 
 		// TODO: unsafe stuff
@@ -179,7 +181,7 @@ int main(int argc, char *argv[]) {
 
 		// install apps
 		CollectivesApplicationHelper app_helper;
-		app_helper.SetAttribute("DataType", EnumValue(DataType::INT32));
+		app_helper.SetAttribute("DataType", EnumValue(dtype));
 		app_helper.SetAttribute("ChunkSize", UintegerValue(CHUNK_SIZE));
 		ApplicationContainer apps = app_helper.Install<GPU>(gpunodes);
 
