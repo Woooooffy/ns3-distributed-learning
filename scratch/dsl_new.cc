@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
         constexpr DataType::Type dtype = DataType::INT32;
         constexpr int N_CHUNKS = 2;
         constexpr int INPUT_BYTES = 1 << 20;
-		constexpr int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
+		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
         // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
         bool CORRECTNESS_CHECK = false;
 
