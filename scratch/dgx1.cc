@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
 //		constexpr int N_NODES = 8;
 		constexpr int N_CHUNKS = 18;
     constexpr int INPUT_BYTES = 3 * (1 << 20);
-		int CHUNK_SIZE = 3 * (1 << 20) / N_CHUNKS / DataType::GetSizeBytes(DataType::INT32);
+		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(DataType::INT32);
     constexpr bool CORRECTNESS_CHECK = false;
 
 		PacketSocketHelper packetSocket;
