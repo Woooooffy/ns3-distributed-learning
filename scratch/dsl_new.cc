@@ -139,10 +139,11 @@ int main(int argc, char *argv[]) {
 
 		constexpr int N_NODES = 8;
         constexpr DataType::Type dtype = DataType::INT32;
+        constexpr int N_CHUNKS = 2;
         constexpr int INPUT_BYTES = 1 << 20;
 		constexpr int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
         // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
-		constexpr int N_CHUNKS = 2;
+        bool CORRECTNESS_CHECK = false;
 
 		// TODO: unsafe stuff
 		std::array<NetDeviceContainer*, N_NODES> recv_addr = {&devs0_0, &devs0_1, &devs0_2, &devs0_3, &devs0_4, &devs0_5, &devs0_6, &devs0_7};
@@ -218,19 +219,25 @@ int main(int argc, char *argv[]) {
 
 
 		CollectiveTester tester(apps, true, logtxt);
-		tester.SetupAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
-    Simulator::Run();
+        if (CORRECTNESS_CHECK) {
+		    tester.SetupAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+        }
+        else{
+            NS_LOG_UNCOND("Skipping correctness check.");
+        }
+        Simulator::Run();
 		Time simTime = Simulator::Now();
 		std::cout << "Total simulated time: "
           << simTime.GetNanoSeconds() << " nanoseconds" << std::endl;
 
-		// CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+        if (CORRECTNESS_CHECK) {
+            CollectiveTestResult allgather_res = tester.VerifyAllgather(CHUNK_SIZE * N_CHUNKS, N_CHUNKS);
+            if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
+            else std::cout << "Allgather incorrect." << std::endl;
+        }
 
-		// if (allgather_res == CollectiveTestResult::TEST_OK) std::cout << "Allgather verified." << std::endl;
-		// else std::cout << "Allgather incorrect." << std::endl;
 
-
-    Simulator::Destroy();
+        Simulator::Destroy();
 		NS_LOG_UNCOND("Done simulation");
 
 
