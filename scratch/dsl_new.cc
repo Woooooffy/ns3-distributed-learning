@@ -140,10 +140,10 @@ int main(int argc, char *argv[]) {
 		constexpr int N_NODES = 8;
         constexpr DataType::Type dtype = DataType::INT32;
         constexpr int N_CHUNKS = 2;
-        constexpr int INPUT_BYTES = 1 << 20;
+        constexpr int INPUT_BYTES = (1 << 20) / 8; // 1MB output
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
         // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
-        bool CORRECTNESS_CHECK = false;
+        bool CORRECTNESS_CHECK = true;
 
 		// TODO: unsafe stuff
 		std::array<NetDeviceContainer*, N_NODES> recv_addr = {&devs0_0, &devs0_1, &devs0_2, &devs0_3, &devs0_4, &devs0_5, &devs0_6, &devs0_7};
@@ -184,6 +184,7 @@ int main(int argc, char *argv[]) {
 		CollectivesApplicationHelper app_helper;
 		app_helper.SetAttribute("DataType", EnumValue(dtype));
 		app_helper.SetAttribute("ChunkSize", UintegerValue(CHUNK_SIZE));
+		app_helper.SetAttribute("CorrectnessCheck", BooleanValue(CORRECTNESS_CHECK));
 		ApplicationContainer apps = app_helper.Install<GPU>(gpunodes);
 
 		// flow Ids
