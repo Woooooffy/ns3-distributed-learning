@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     gpunodes.Create<GPU>(2);
     swtches.Create(0);
     PointToPointHelper link_helper0;
-    link_helper0.SetDeviceAttribute("Mtu", UintegerValue(UINT16_MAX));
+    link_helper0.SetDeviceAttribute("Mtu", UintegerValue(1500));
     link_helper0.SetChannelAttribute("Delay", StringValue("700ns"));
     link_helper0.SetDeviceAttribute("DataRate", StringValue("25GBps"));
 		link_helper0.SetQueue("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("50000p")));

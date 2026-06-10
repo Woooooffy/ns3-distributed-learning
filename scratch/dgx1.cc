@@ -270,9 +270,9 @@ int main(int argc, char *argv[]) {
 
 //		constexpr int N_NODES = 8;
 		constexpr int N_CHUNKS = 18;
-    constexpr int INPUT_BYTES = 3 * (1 << 20);
+    constexpr int INPUT_BYTES = 786432 * (1 << 10); 
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(DataType::INT32);
-    constexpr bool CORRECTNESS_CHECK = false;
+    constexpr bool CORRECTNESS_CHECK = true;
 
 		PacketSocketHelper packetSocket;
 		packetSocket.Install(gpunodes);

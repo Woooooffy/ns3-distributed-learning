@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 		constexpr int N_NODES = 8;
         constexpr DataType::Type dtype = DataType::INT32;
         constexpr int N_CHUNKS = 2;
-        constexpr int INPUT_BYTES = (1 << 20) / 8; // 1MB output
+        constexpr int INPUT_BYTES = (1 << 20);
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
         // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
         bool CORRECTNESS_CHECK = true;
