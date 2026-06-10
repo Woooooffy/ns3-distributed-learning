@@ -266,6 +266,10 @@ namespace ns3 {
 		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
 		uint32_t headerSize = templateHdr.GetSerializedSize();
 		uint32_t maxPayload = mtu - headerSize - 14; // 14 bytes for eth headers if needed
+		// round down to a multiple of the element size so fragment boundaries
+		// never split an element; otherwise ReduceAdd misaligns across fragments
+		uint32_t elemSize = DataType::GetSizeBytes(m_dataType);
+		maxPayload -= maxPayload % elemSize;
 
 		const uint8_t* srcData = m_app->GetCorrectnessCheck()
 		    ? (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff)
