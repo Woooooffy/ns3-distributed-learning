@@ -266,11 +266,12 @@ int main(int argc, char *argv[]) {
 
     const std::string LOG_FILE = "/data/commit/graphit/wangyj05/workspace/gloo-ns3-examples/logs/Allgather_DSL_test.txt";
 		std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test.xml");
-//		std::string XML_ALGO = "/data/scratch/wangyj05/msccl_xml/single_instance/Allgather_n_8_-DGX1-steps_3_rounds_7_chunks_6.xml"; 
+//		std::string XML_ALGO = "/data/scratch/wangyj05/msccl_xml/single_instance/Allgather_n_8_-DGX1-steps_3_rounds_7_chunks_6.xml";
 
 //		constexpr int N_NODES = 8;
 		constexpr int N_CHUNKS = 18;
-		constexpr int CHUNK_SIZE = 3 * (1 << 20) / N_CHUNKS;
+    constexpr int INPUT_BYTES = 3 * (1 << 20);
+		int CHUNK_SIZE = 3 * (1 << 20) / N_CHUNKS / DataType::GetSizeBytes(DataType::INT32);
     constexpr bool CORRECTNESS_CHECK = false;
 
 		PacketSocketHelper packetSocket;
