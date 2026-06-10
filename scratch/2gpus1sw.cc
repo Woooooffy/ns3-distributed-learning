@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 //		std::string XML_ALGO = ns3::SystemPath::Append(ns3::SystemPath::FindSelfDirectory(), "../../scratch/test.xml");
 		std::string XML_ALGO = "/data/scratch/wangyj05/msccl_xml/single_instance/Allgather_n_2_-Line_n_2_-steps_1.xml";
 
-//		constexpr int N_NODES = 8;
+		constexpr int N_NODES = 2;
 		constexpr int N_CHUNKS = 1;
         constexpr int INPUT_BYTES = (1 << 10);
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(DataType::INT32);
@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		for (auto cur = flowIds.begin(); cur != flowIds.end(); ++cur){
-			int src = cur->first.first;
+			//int src = cur->first.first;
 			int dst = cur->first.second;
 			uint32_t flow = cur->second;
 
