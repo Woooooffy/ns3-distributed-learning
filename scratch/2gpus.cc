@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 		constexpr int N_CHUNKS = 1;
     // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
 		int INPUT_SIZE = 4 * (1 << 20);
-		int CHUNK_SIZE = (INPUT_SIZE / N_CHUNKS) / 4;
+		int CHUNK_SIZE = (INPUT_SIZE / N_CHUNKS) / DataType::GetSizeBytes(DataType::INT32);
     constexpr bool CORRECTNESS_CHECK = true;
 
 		PacketSocketHelper packetSocket;
