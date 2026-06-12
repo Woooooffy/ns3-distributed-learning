@@ -14,6 +14,7 @@
 using namespace ns3;
 
 int main(int argc, char *argv[]) {
+    NS_LOG_COMPONENT_DEFINE("EXAMPLE_TEST");
     NodeContainer gpunodes;
     NodeContainer swtches;
     P4Helper sw_helper;
