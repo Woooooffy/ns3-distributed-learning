@@ -24,11 +24,12 @@ int main(int argc, char *argv[]) {
     gpunodes.Create<GPU>(2);
     swtches.Create(1);
     SwitchedEthernetHelper link_helper0;
-    link_helper0.SetDeviceAttribute("Mtu", UintegerValue(9000));
+    link_helper0.SetDeviceAttribute("Mtu", UintegerValue(1500));
     link_helper0.SetChannelAttribute("Delay", StringValue("700ns"));
     link_helper0.SetChannelAttribute("DataRate", StringValue("25GBps"));
 
-    sw_helper.SetDeviceAttribute("Mtu", UintegerValue(9000));
+
+    sw_helper.SetDeviceAttribute("Mtu", UintegerValue(1500));
     NetDeviceContainer sw_dev0 = sw_helper.Install(swtches.Get(0));
     Ptr<P4SwitchNetDevice> sw0 = DynamicCast<P4SwitchNetDevice>(sw_dev0.Get(0));
 
@@ -72,7 +73,7 @@ int main(int argc, char *argv[]) {
 
 		constexpr int N_NODES = 2;
 		constexpr int N_CHUNKS = 1;
-        constexpr int INPUT_BYTES = (1 << 20);
+        constexpr int INPUT_BYTES = 4 * (1 << 20);
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(DataType::INT32);
         constexpr bool CORRECTNESS_CHECK = true;
 
