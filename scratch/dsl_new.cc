@@ -22,6 +22,11 @@ gpu2	gpu3    gpu6  gpu7
 */
 int main(int argc, char *argv[]) {
 
+		uint32_t inputBytes = (1 << 20);
+		CommandLine cmd;
+		cmd.AddValue("inputBytes", "Total input size in bytes", inputBytes);
+		cmd.Parse(argc, argv);
+
 		#ifdef FLOW_ID_TEST
 
 		NS_LOG_COMPONENT_DEFINE("DSL_TEST");
@@ -140,7 +145,7 @@ int main(int argc, char *argv[]) {
 		constexpr int N_NODES = 8;
         constexpr DataType::Type dtype = DataType::INT32;
         constexpr int N_CHUNKS = 2;
-        constexpr int INPUT_BYTES = (1 << 20);
+        const uint32_t INPUT_BYTES = inputBytes;
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(dtype);
         // in elements, so total bytes is CHUNK_SIZE * N_CHUNKS * sizeof(datatype)
         bool CORRECTNESS_CHECK = true;
