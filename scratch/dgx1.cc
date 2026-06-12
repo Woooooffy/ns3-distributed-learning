@@ -15,6 +15,11 @@ using namespace ns3;
 
 int main(int argc, char *argv[]) {
 		NS_LOG_COMPONENT_DEFINE("DGX1_TEST");
+    uint32_t inputBytes = (1 << 20);
+		CommandLine cmd;
+		cmd.AddValue("inputBytes", "Total input size in bytes", inputBytes);
+		cmd.Parse(argc, argv);
+
     NodeContainer gpunodes;
     NodeContainer swtches;
     P4Helper sw_helper;
@@ -270,7 +275,7 @@ int main(int argc, char *argv[]) {
 
 //		constexpr int N_NODES = 8;
 		constexpr int N_CHUNKS = 18;
-    constexpr int INPUT_BYTES = (1<<10) * 3072;// 786432 * (1 << 10); 
+    int INPUT_BYTES = inputBytes;
 		int CHUNK_SIZE = (INPUT_BYTES / N_CHUNKS) / DataType::GetSizeBytes(DataType::INT32);
     constexpr bool CORRECTNESS_CHECK = true;
 
