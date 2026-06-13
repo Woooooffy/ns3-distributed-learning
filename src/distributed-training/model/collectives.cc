@@ -1,6 +1,10 @@
 #include "collectives.h"
 
 #define MSCCL_MAX_ITER 65536
+// L2 overhead (e.g. PPP/eth header) added by the NetDevice on top of our packet,
+// reserved when sizing fragments and used to keep fragment pacing from
+// outrunning the device's actual transmission time
+#define MSCCL_L2_OVERHEAD_BYTES 14
 
 // flags are a 3-tuple of (workindex, gridoffset_iter, step) and it follows a lexicographical order. a threadblock is ahead of another iff its flag is ahead
 #define COMPUTE_FLAG(__WORKINDEX__,__GRIDOFFSET_ITER__,__STEP__) \
@@ -282,7 +286,12 @@ namespace ns3 {
 
 		if (!fragQueue.empty()){
 			Ptr<NetDevice> dev = m_app->GetSendDevicePeer(frag.sendpeer, m_id);
-			Simulator::Schedule(GetTxTime(dev, wireSize), &MscclChannel::SendNextFragment, this, sock);
+			// pad by the same L2 overhead margin used to size fragments in Send(), so our
+			// pacing never runs ahead of the device's actual transmission time (which
+			// includes link-layer headers we don't account for in wireSize). Otherwise
+			// the small per-fragment drift accumulates across the simulation and
+			// eventually overflows the device's TX queue.
+			Simulator::Schedule(GetTxTime(dev, wireSize + MSCCL_L2_OVERHEAD_BYTES), &MscclChannel::SendNextFragment, this, sock);
 		} else {
 			m_sendInFlight[sock] = false;
 		}
@@ -305,7 +314,7 @@ namespace ns3 {
 		uint32_t mtu = m_app->GetSendDevicePeer(sendpeer, m_id)->GetMtu();
 		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
 		uint32_t headerSize = templateHdr.GetSerializedSize();
-		uint32_t maxPayload = mtu - headerSize - 14; // 14 bytes for eth headers if needed
+		uint32_t maxPayload = mtu - headerSize - MSCCL_L2_OVERHEAD_BYTES;
 		// round down to a multiple of the element size so fragment boundaries
 		// never split an element; otherwise ReduceAdd misaligns across fragments
 		uint32_t elemSize = DataType::GetSizeBytes(m_dataType);
