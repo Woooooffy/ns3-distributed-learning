@@ -49,9 +49,18 @@ attr: NAME "=" value
 
 // ----------------- VALUES -----------------
 value: NUMBER "[" UNIT "]"
-		 | NUMBER
-		 | NAME
-     | var
+     | expr
+
+// ------------- Arithmetic -------------
+expr: term (ADD_OP term)*
+term: atom (MUL_OP atom)*
+atom: NUMBER
+    | NAME
+    | var
+    | "(" expr ")"
+
+ADD_OP: "+" | "-"
+MUL_OP: "*" | "/"
 
 var: "{" NAME "}"
 

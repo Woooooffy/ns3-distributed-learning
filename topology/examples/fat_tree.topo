@@ -1,0 +1,49 @@
+module gpu_server(R){
+	node nvswitch type=nvswitch;
+	for r in (0, R - 1){
+		node gpu{r} type=gpu;
+		link gpu{r} nvswitch bandwidth=900[GBps] latency=100[ns];
+	}
+}
+
+module core_group(C){
+	for c in (0, C - 1){
+		node sw{c} type=switch;
+	}
+}
+
+module pod(K){
+	for e in (0, K / 2 - 1){
+		node edge{e} type=switch;
+	}
+	for s in (0, K / 2 - 1){
+		use gpu_server(K / 2) as server{s};
+		for r in (0, K / 2 - 1){
+			link server{s}.gpu{r} edge{r} bandwidth=400[Gbps] latency=700[ns];
+		}
+	}
+	for a in (0, K / 2 - 1){
+		node agg{a} type=switch;
+		for e in (0, K / 2 - 1){
+			link agg{a} edge{e} bandwidth=400[Gbps] latency=700[ns];
+		}
+	}
+}
+
+module fatTree(K){
+	for p in (0, K - 1){
+		use pod(K) as p{p};
+	}
+	for g in (0, K / 2 - 1){
+		use core_group(K / 2) as core{g};
+		for c in (0, K / 2 - 1){
+			for p in (0, K - 1){
+				link core{g}.sw{c} p{p}.agg{g} bandwidth=400[Gbps] latency=700[ns];
+			}
+		}
+	}
+}
+
+module main(){
+	use fatTree(4) as ft;
+}

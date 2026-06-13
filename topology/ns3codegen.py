@@ -114,7 +114,7 @@ class NS3CodeGenerator():
 			case "gpu":
 				self.gpus[name] = self.gpu_counter
 				self.gpu_counter += 1
-			case "switch":
+			case "switch" | "nvswitch":
 				self.switches[name] = self.switch_counter
 				self.switch_counter += 1
 				#TODO proper modeling of switch attributes
@@ -154,32 +154,33 @@ class NS3CodeGenerator():
 		self.insns.append(NS3InstallLink(src, dst, self.link_helpers[attr]))
 	
 	def GenSubmodule(self, parent_scope: Scope, insn: SubmoduleInsn, *args: Any):
-		module = self.modules.get(insn.module_name)	
+		module = self.modules.get(insn.module_name)
 		if not module:
 			raise RuntimeError("Module " + insn.module_name + " not defined.")
 		scope = module.get_scope()
 		scope.set_parent(parent_scope)
 		scope.set_node_name_prefix(insn.name)
-		self.GenerateModule(module, *insn.args)
-	
+		resolved_args = [Expr.resolve(a, parent_scope) for a in insn.args]
+		self.GenerateModule(module, *resolved_args)
+
 	def GenIf(self, parent_scope: Scope, insn: IfInsn, *args: Any):
 		cond: list[Any] = insn.cond
 		true_block: Block = insn.true_block
 		if (type(cond[0]) == tuple or type(cond[2]) == tuple):
 			raise RuntimeError("Comparisons with units not yet supported.")
-		left: int = cond[0] if type(cond[0]) == int else parent_scope.lookup(cond[0])
-		right: int = cond[2] if type(cond[2]) == int else parent_scope.lookup(cond[2])
+		left: int = Expr.resolve(cond[0], parent_scope)
+		right: int = Expr.resolve(cond[2], parent_scope)
 		evaluated: bool = cond[1](left, right)
 		if not evaluated:
 			return
 		scope = true_block.get_scope()
 		scope.set_parent(parent_scope)
 		self.GenerateModule(true_block)
-	
+
 	def GenLoop(self, parent_scope: Scope, insn: LoopInsn, *args: Any):
 		itername = insn.iterator_name
-		start = insn.start if (type(insn.start) == int) else parent_scope.lookup(insn.start)
-		end = insn.end if (type(insn.end) == int) else parent_scope.lookup(insn.end)
+		start = Expr.resolve(insn.start, parent_scope)
+		end = Expr.resolve(insn.end, parent_scope)
 		loop_block = insn.body
 		scope = loop_block.get_scope()
 		scope.set_parent(parent_scope)

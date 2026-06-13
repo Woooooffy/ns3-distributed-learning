@@ -63,6 +63,46 @@ class Scope():
 	def set_node_name_prefix(self, prefix: str) -> None:
 		self.node_name_prefix = prefix
 
+##### Arithmetic #####
+
+class Expr():
+	'''
+	Lazily-evaluated arithmetic expression over NUMBERs, NAMEs (param/loop
+	variables) and {var} references. Resolved against a Scope once the
+	referenced names are in scope (e.g. inside a module/loop body).
+	'''
+	OPS: dict[str, Callable[[int, int], int]] = {
+		"+": operator.add,
+		"-": operator.sub,
+		"*": operator.mul,
+		"/": operator.floordiv,
+	}
+
+	def __init__(self, op: str, left: Any, right: Any):
+		self.op: str = op
+		self.left: Any = left
+		self.right: Any = right
+
+	def __repr__(self) -> str:
+		return f"({self.left} {self.op} {self.right})"
+
+	def evaluate(self, scope: "Scope") -> int:
+		left = Expr.resolve(self.left, scope)
+		right = Expr.resolve(self.right, scope)
+		return Expr.OPS[self.op](left, right)
+
+	@staticmethod
+	def resolve(value: Any, scope: "Scope") -> int:
+		if isinstance(value, Expr):
+			return value.evaluate(scope)
+		if isinstance(value, int):
+			return value
+		if isinstance(value, str):
+			name = value[1:-1] if value.startswith("{") and value.endswith("}") else value
+			return scope.lookup(name)
+		raise RuntimeError(f"Cannot resolve {value!r} to an integer.")
+
+
 ##### Helpers #####
 
 class Insn():
@@ -231,14 +271,34 @@ class TopoTransformer(Transformer):
 			unit = str(items[1])
 			return (number, unit)
 		else:
-			# single token: NUMBER or NAME
-			token = items[0]
-			if type(token) == str:
-				return token
-			elif token.type == "NUMBER":
-				return int(token)
-			return str(token)
+			# result of expr: int, str (NAME/var), or Expr
+			return items[0]
 	
+	def expr(self, items):
+		return self._fold_binop(items)
+
+	def term(self, items):
+		return self._fold_binop(items)
+
+	def atom(self, items):
+		token = items[0]
+		if isinstance(token, Expr) or type(token) is str:
+			# Expr from "(" expr ")", or plain str from var ("{NAME}")
+			return token
+		if token.type == "NUMBER":
+			return int(token)
+		return str(token)
+
+	def _fold_binop(self, items):
+		result = items[0]
+		i = 1
+		while i < len(items):
+			op = str(items[i])
+			rhs = items[i + 1]
+			result = Expr(op, result, rhs)
+			i += 2
+		return result
+
 	def template_suffix(self, items):
 		return items[0]
 	
