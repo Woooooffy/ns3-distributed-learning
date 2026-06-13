@@ -70,6 +70,23 @@ namespace ns3 {
 										receivedBytes(0), pendingBytes(bytes), op(Op), srcBuf(srcbuf), srcOffset(srcoff), dstBuf(dstbuf), dstOffset(dstoff){}
 	};
 
+	// a single on-wire fragment of a Send(), queued for pacing onto the NIC
+	struct PendingFragment{
+		uint32_t fragOffset; // byte offset within the logical transfer
+		uint32_t fragPayload; // payload bytes carried by this fragment
+		uint32_t totalBytes; // total payload bytes of the logical transfer (for header)
+		uint16_t dstGpu;
+		uint16_t dstBuf;
+		int16_t dstOff;
+		int flowId;
+		const uint8_t* srcBase; // pointer to start of src region, nullptr if correctness check disabled
+		int16_t sendpeer;
+		PendingFragment(uint32_t fragOff, uint32_t fragPay, uint32_t total, uint16_t dstGpu_, uint16_t dstBuf_, int16_t dstOff_,
+		                int flow, const uint8_t* src, int16_t peer):
+			fragOffset(fragOff), fragPayload(fragPay), totalBytes(total), dstGpu(dstGpu_), dstBuf(dstBuf_), dstOff(dstOff_),
+			flowId(flow), srcBase(src), sendpeer(peer){}
+	};
+
 	// helper class for channel modeling
 	class MscclChannel {
 		public:
@@ -86,6 +103,7 @@ namespace ns3 {
 
 			inline void SetPendingRecv(uint16_t dstBuf, int16_t dstOff, PendingTransfer recv);
 			inline void PushPendingSend(Ptr<Socket> sendpeer, PendingTransfer send);
+			void SendNextFragment(Ptr<Socket> sock);
 			void Send(int8_t bid, int16_t sid, int16_t sendPeer, uint32_t nElems, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff);
 			void Recv(int8_t bid, int16_t sid, int16_t recvPeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff);
 			void RecvCpSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems);
@@ -111,6 +129,9 @@ namespace ns3 {
 			std::map<std::pair<uint16_t, uint16_t>, bool> m_recvReadyByBufferRegion;
 			std::map<std::pair<uint16_t, uint16_t>, uint32_t> m_recvBytesAccum;
 			std::map<Ptr<Socket>, std::queue<PendingTransfer>> m_pendingSends;
+			std::map<Ptr<Socket>, std::queue<PendingFragment>> m_pendingFragments;
+			std::map<Ptr<Socket>, bool> m_sendInFlight; // whether a fragment send is currently paced/in-progress for this socket
+			static Time GetTxTime(Ptr<NetDevice> dev, uint32_t bytes);
 			#ifdef FLOW_ID_TEST
 			std::map<std::pair<int, int>, uint32_t>* m_flowIds;
 			uint32_t m_flowId_counter = 0;

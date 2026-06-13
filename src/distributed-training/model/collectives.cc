@@ -248,6 +248,46 @@ namespace ns3 {
 		m_pendingSends[sock].push(send);
 	}
 
+	Time MscclChannel::GetTxTime(Ptr<NetDevice> dev, uint32_t bytes){
+		DataRateValue drValue;
+		if (dev->GetAttributeFailSafe("DataRate", drValue)){
+			return drValue.Get().CalculateBytesTxTime(bytes);
+		}
+		return Time(0);
+	}
+
+	void MscclChannel::SendNextFragment(Ptr<Socket> sock){
+		std::queue<PendingFragment>& fragQueue = m_pendingFragments.at(sock);
+		if (fragQueue.empty()){
+			m_sendInFlight[sock] = false;
+			return;
+		}
+		PendingFragment frag = fragQueue.front();
+		fragQueue.pop();
+
+		Ptr<Packet> pkt = frag.srcBase
+		    ? Create<ns3::Packet>(frag.srcBase + frag.fragOffset, frag.fragPayload)
+		    : Create<ns3::Packet>(frag.fragPayload);
+		MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(frag.dstGpu), static_cast<uint16_t>(m_id), frag.dstBuf, static_cast<uint16_t>(frag.dstOff), frag.totalBytes, frag.flowId, frag.fragOffset);
+		pkt->AddHeader(fragHdr);
+		uint32_t wireSize = pkt->GetSize();
+
+		int result = sock->Send(pkt, 0);
+		if (result < 0){
+			NS_FATAL_ERROR("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id
+				<< ": sock->Send() failed (returned " << result << ") to peer " << frag.sendpeer
+				<< " fragOffset=" << frag.fragOffset << " fragPayload=" << frag.fragPayload
+				<< " txAvail=" << sock->GetTxAvailable());
+		}
+
+		if (!fragQueue.empty()){
+			Ptr<NetDevice> dev = m_app->GetSendDevicePeer(frag.sendpeer, m_id);
+			Simulator::Schedule(GetTxTime(dev, wireSize), &MscclChannel::SendNextFragment, this, sock);
+		} else {
+			m_sendInFlight[sock] = false;
+		}
+	}
+
 	void MscclChannel::Send(int8_t bid, int16_t sid, int16_t sendpeer, uint32_t nElems, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff){
 		if (sendpeer < 0){
 			NS_FATAL_ERROR("Send peer is negative in Send");
@@ -274,33 +314,24 @@ namespace ns3 {
 		const uint8_t* srcData = m_app->GetCorrectnessCheck()
 		    ? (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff)
 		    : nullptr;
+
+		std::queue<PendingFragment>& fragQueue = m_pendingFragments[sock];
 		uint32_t totalWireBytes = 0;
 		uint32_t offset = 0;
 		while (offset < totalBytes){
 			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
 			totalWireBytes += fragPayload + headerSize;
+			fragQueue.emplace(offset, fragPayload, totalBytes, static_cast<uint16_t>(sendpeer), dstbuf, dstoff, flowId, srcData, sendpeer);
 			offset += fragPayload;
 		}
 
 		PendingTransfer send(bid, sid, totalWireBytes, MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
 		m_pendingSends[sock].push(send);
 
-		offset = 0;
-		while (offset < totalBytes){
-			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
-			Ptr<Packet> pkt = srcData
-			    ? Create<ns3::Packet>(srcData + offset, fragPayload)
-			    : Create<ns3::Packet>(fragPayload);
-			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
-			pkt->AddHeader(fragHdr);
-			offset += fragPayload;
-			int result = sock->Send(pkt, 0);
-			if (result < 0){
-				NS_FATAL_ERROR("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id
-					<< ": sock->Send() failed (returned " << result << ") to peer " << sendpeer
-					<< " fragOffset=" << (offset - fragPayload) << " fragPayload=" << fragPayload
-					<< " txAvail=" << sock->GetTxAvailable());
-			}
+		// kick off pacing if this socket isn't already draining its fragment queue
+		if (!m_sendInFlight[sock]){
+			m_sendInFlight[sock] = true;
+			SendNextFragment(sock);
 		}
 	}
 
