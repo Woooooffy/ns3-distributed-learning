@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     link_helper0.SetDeviceAttribute("Mtu", UintegerValue(UINT16_MAX));
     link_helper0.SetChannelAttribute("Delay", StringValue("700ns"));
     link_helper0.SetDeviceAttribute("DataRate", StringValue("25GBps"));
-    link_helper0.SetQueue("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("50000p")));
+    link_helper0.SetQueue("ns3::DropTailQueue", "MaxSize", QueueSizeValue(QueueSize("1000p")));
 
     NetDeviceContainer devs0_0 = link_helper0.Install(gpunodes.Get(0), gpunodes.Get(1));
 
