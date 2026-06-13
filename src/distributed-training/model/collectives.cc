@@ -252,51 +252,6 @@ namespace ns3 {
 		m_pendingSends[sock].push(send);
 	}
 
-	Time MscclChannel::GetTxTime(Ptr<NetDevice> dev, uint32_t bytes){
-		DataRateValue drValue;
-		if (dev->GetAttributeFailSafe("DataRate", drValue)){
-			return drValue.Get().CalculateBytesTxTime(bytes);
-		}
-		return Time(0);
-	}
-
-	void MscclChannel::SendNextFragment(Ptr<Socket> sock){
-		std::queue<PendingFragment>& fragQueue = m_pendingFragments.at(sock);
-		if (fragQueue.empty()){
-			m_sendInFlight[sock] = false;
-			return;
-		}
-		PendingFragment frag = fragQueue.front();
-		fragQueue.pop();
-
-		Ptr<Packet> pkt = frag.srcBase
-		    ? Create<ns3::Packet>(frag.srcBase + frag.fragOffset, frag.fragPayload)
-		    : Create<ns3::Packet>(frag.fragPayload);
-		MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(frag.dstGpu), static_cast<uint16_t>(m_id), frag.dstBuf, static_cast<uint16_t>(frag.dstOff), frag.totalBytes, frag.flowId, frag.fragOffset);
-		pkt->AddHeader(fragHdr);
-		uint32_t wireSize = pkt->GetSize();
-
-		int result = sock->Send(pkt, 0);
-		if (result < 0){
-			NS_FATAL_ERROR("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id
-				<< ": sock->Send() failed (returned " << result << ") to peer " << frag.sendpeer
-				<< " fragOffset=" << frag.fragOffset << " fragPayload=" << frag.fragPayload
-				<< " txAvail=" << sock->GetTxAvailable());
-		}
-
-		if (!fragQueue.empty()){
-			Ptr<NetDevice> dev = m_app->GetSendDevicePeer(frag.sendpeer, m_id);
-			// pad by the same L2 overhead margin used to size fragments in Send(), so our
-			// pacing never runs ahead of the device's actual transmission time (which
-			// includes link-layer headers we don't account for in wireSize). Otherwise
-			// the small per-fragment drift accumulates across the simulation and
-			// eventually overflows the device's TX queue.
-			Simulator::Schedule(GetTxTime(dev, wireSize + MSCCL_L2_OVERHEAD_BYTES), &MscclChannel::SendNextFragment, this, sock);
-		} else {
-			m_sendInFlight[sock] = false;
-		}
-	}
-
 	void MscclChannel::Send(int8_t bid, int16_t sid, int16_t sendpeer, uint32_t nElems, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff){
 		if (sendpeer < 0){
 			NS_FATAL_ERROR("Send peer is negative in Send");
@@ -311,7 +266,8 @@ namespace ns3 {
 			flowId = GetFlowId(m_app->GetNode()->GetId(), sendpeer);
 		#endif
 
-		uint32_t mtu = m_app->GetSendDevicePeer(sendpeer, m_id)->GetMtu();
+		Ptr<NetDevice> dev = m_app->GetSendDevicePeer(sendpeer, m_id);
+		uint32_t mtu = dev->GetMtu();
 		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
 		uint32_t headerSize = templateHdr.GetSerializedSize();
 		uint32_t maxPayload = mtu - headerSize - MSCCL_L2_OVERHEAD_BYTES;
@@ -324,24 +280,21 @@ namespace ns3 {
 		    ? (const uint8_t*) m_app->GetBufferPtr(srcbuf, srcoff)
 		    : nullptr;
 
-		std::queue<PendingFragment>& fragQueue = m_pendingFragments[sock];
+		std::queue<PendingFragment> frags;
 		uint32_t totalWireBytes = 0;
 		uint32_t offset = 0;
 		while (offset < totalBytes){
 			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
 			totalWireBytes += fragPayload + headerSize;
-			fragQueue.emplace(offset, fragPayload, totalBytes, static_cast<uint16_t>(sendpeer), dstbuf, dstoff, flowId, srcData, sendpeer);
+			frags.emplace(offset, fragPayload, totalBytes, static_cast<uint16_t>(m_id), static_cast<uint16_t>(sendpeer), dstbuf, dstoff, flowId, srcData, sock);
 			offset += fragPayload;
 		}
 
 		PendingTransfer send(bid, sid, totalWireBytes, MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
 		m_pendingSends[sock].push(send);
 
-		// kick off pacing if this socket isn't already draining its fragment queue
-		if (!m_sendInFlight[sock]){
-			m_sendInFlight[sock] = true;
-			SendNextFragment(sock);
-		}
+		// pacing happens per physical device, since multiple channels may share one
+		m_app->QueueFragmentsForDevice(dev, std::move(frags));
 	}
 
 	void MscclChannel::Recv(int8_t bid, int16_t sid, int16_t recvpeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff){
@@ -680,6 +633,63 @@ namespace ns3 {
 			for (int s = 0; s < chanInfo->nSendPeers; ++s){
 				chan->ConnectSendPeer(chanInfo->sendPeerInfo[s].peer);
 			}
+		}
+	}
+
+	Time CollectivesApplication::GetTxTime(Ptr<NetDevice> dev, uint32_t bytes){
+		DataRateValue drValue;
+		if (dev->GetAttributeFailSafe("DataRate", drValue)){
+			return drValue.Get().CalculateBytesTxTime(bytes);
+		}
+		return Time(0);
+	}
+
+	void CollectivesApplication::QueueFragmentsForDevice(Ptr<NetDevice> dev, std::queue<PendingFragment> frags){
+		std::queue<PendingFragment>& fragQueue = m_pendingFragments[dev];
+		while (!frags.empty()){
+			fragQueue.push(std::move(frags.front()));
+			frags.pop();
+		}
+		// kick off pacing if this device isn't already draining its fragment queue
+		if (!m_sendInFlight[dev]){
+			m_sendInFlight[dev] = true;
+			SendNextFragment(dev);
+		}
+	}
+
+	void CollectivesApplication::SendNextFragment(Ptr<NetDevice> dev){
+		std::queue<PendingFragment>& fragQueue = m_pendingFragments.at(dev);
+		if (fragQueue.empty()){
+			m_sendInFlight[dev] = false;
+			return;
+		}
+		PendingFragment frag = fragQueue.front();
+		fragQueue.pop();
+
+		Ptr<Packet> pkt = frag.srcBase
+		    ? Create<ns3::Packet>(frag.srcBase + frag.fragOffset, frag.fragPayload)
+		    : Create<ns3::Packet>(frag.fragPayload);
+		MscclHeader fragHdr(GetNode()->GetId(), frag.dstGpu, frag.channel, frag.dstBuf, static_cast<uint16_t>(frag.dstOff), frag.totalBytes, frag.flowId, frag.fragOffset);
+		pkt->AddHeader(fragHdr);
+		uint32_t wireSize = pkt->GetSize();
+
+		int result = frag.sock->Send(pkt, 0);
+		if (result < 0){
+			NS_FATAL_ERROR("Node " << GetNode()->GetId() << " chan " << (int)frag.channel
+				<< ": sock->Send() failed (returned " << result << ") to peer " << frag.dstGpu
+				<< " fragOffset=" << frag.fragOffset << " fragPayload=" << frag.fragPayload
+				<< " txAvail=" << frag.sock->GetTxAvailable());
+		}
+
+		if (!fragQueue.empty()){
+			// pad by the same L2 overhead margin used to size fragments in Send(), so our
+			// pacing never runs ahead of the device's actual transmission time (which
+			// includes link-layer headers we don't account for in wireSize). Otherwise
+			// the small per-fragment drift accumulates across the simulation and
+			// eventually overflows the device's TX queue.
+			Simulator::Schedule(GetTxTime(dev, wireSize + MSCCL_L2_OVERHEAD_BYTES), &CollectivesApplication::SendNextFragment, this, dev);
+		} else {
+			m_sendInFlight[dev] = false;
 		}
 	}
 

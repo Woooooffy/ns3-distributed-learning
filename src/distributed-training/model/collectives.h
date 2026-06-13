@@ -75,16 +75,17 @@ namespace ns3 {
 		uint32_t fragOffset; // byte offset within the logical transfer
 		uint32_t fragPayload; // payload bytes carried by this fragment
 		uint32_t totalBytes; // total payload bytes of the logical transfer (for header)
+		uint16_t channel;
 		uint16_t dstGpu;
 		uint16_t dstBuf;
 		int16_t dstOff;
 		int flowId;
 		const uint8_t* srcBase; // pointer to start of src region, nullptr if correctness check disabled
-		int16_t sendpeer;
-		PendingFragment(uint32_t fragOff, uint32_t fragPay, uint32_t total, uint16_t dstGpu_, uint16_t dstBuf_, int16_t dstOff_,
-		                int flow, const uint8_t* src, int16_t peer):
-			fragOffset(fragOff), fragPayload(fragPay), totalBytes(total), dstGpu(dstGpu_), dstBuf(dstBuf_), dstOff(dstOff_),
-			flowId(flow), srcBase(src), sendpeer(peer){}
+		Ptr<Socket> sock; // socket (channel-specific) to send this fragment through
+		PendingFragment(uint32_t fragOff, uint32_t fragPay, uint32_t total, uint16_t chan, uint16_t dstGpu_, uint16_t dstBuf_, int16_t dstOff_,
+		                int flow, const uint8_t* src, Ptr<Socket> sock_):
+			fragOffset(fragOff), fragPayload(fragPay), totalBytes(total), channel(chan), dstGpu(dstGpu_), dstBuf(dstBuf_), dstOff(dstOff_),
+			flowId(flow), srcBase(src), sock(sock_){}
 	};
 
 	// helper class for channel modeling
@@ -103,7 +104,6 @@ namespace ns3 {
 
 			inline void SetPendingRecv(uint16_t dstBuf, int16_t dstOff, PendingTransfer recv);
 			inline void PushPendingSend(Ptr<Socket> sendpeer, PendingTransfer send);
-			void SendNextFragment(Ptr<Socket> sock);
 			void Send(int8_t bid, int16_t sid, int16_t sendPeer, uint32_t nElems, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff);
 			void Recv(int8_t bid, int16_t sid, int16_t recvPeer, uint32_t nElems, uint16_t dstbuf, int16_t dstoff);
 			void RecvCpSend(int8_t bid, int16_t sid, int16_t sendpeer, int16_t recvpeer, uint32_t nElems);
@@ -129,9 +129,6 @@ namespace ns3 {
 			std::map<std::pair<uint16_t, uint16_t>, bool> m_recvReadyByBufferRegion;
 			std::map<std::pair<uint16_t, uint16_t>, uint32_t> m_recvBytesAccum;
 			std::map<Ptr<Socket>, std::queue<PendingTransfer>> m_pendingSends;
-			std::map<Ptr<Socket>, std::queue<PendingFragment>> m_pendingFragments;
-			std::map<Ptr<Socket>, bool> m_sendInFlight; // whether a fragment send is currently paced/in-progress for this socket
-			static Time GetTxTime(Ptr<NetDevice> dev, uint32_t bytes);
 			#ifdef FLOW_ID_TEST
 			std::map<std::pair<int, int>, uint32_t>* m_flowIds;
 			uint32_t m_flowId_counter = 0;
@@ -164,6 +161,9 @@ namespace ns3 {
 			void DumpBuffer(DataBuffer* buf, std::ostream& log);
 			void SetCorrectnessCheck(bool enable);
 			bool GetCorrectnessCheck() const;
+			// queue fragments for transmission on the given (possibly shared) device,
+			// pacing them onto the wire one at a time at the device's data rate
+			void QueueFragmentsForDevice(Ptr<NetDevice> dev, std::queue<PendingFragment> frags);
 			#ifdef FLOW_ID_TEST
 			// void SetFlowIdTableForChannel(std::map<std::pair<int, int>, uint32_t>*, int channel);
 			// void SetFlowIdTableForAllChannels(std::map<std::pair<int, int>, uint32_t>* table);
@@ -180,6 +180,8 @@ namespace ns3 {
 			void TryScheduleNextStep(int8_t bid);
 			void InterpretAlgo();
 			void Bootstrap();
+			void SendNextFragment(Ptr<NetDevice> dev);
+			static Time GetTxTime(Ptr<NetDevice> dev, uint32_t bytes);
 		private:
 			DataType::Type m_dataType;
 			mscclAlgorithm* m_algo;
@@ -192,6 +194,10 @@ namespace ns3 {
 			bool m_correctnessCheck = false;
 			int m_port = 5000;
 			std::map<int, MscclChannel> m_channels;
+			// per-device fragment pacing state; shared across MscclChannels whose
+			// sockets resolve to the same underlying NetDevice
+			std::map<Ptr<NetDevice>, std::queue<PendingFragment>> m_pendingFragments;
+			std::map<Ptr<NetDevice>, bool> m_sendInFlight;
 			// std::map<int16_t, Address> m_peerAddr;
 			// std::map<int16_t, Ptr<NetDevice>> m_deviceFromPeer;
 			// std::map<std::pair<uint8_t, int16_t>, PendingTransfer> m_pendingRecvs;
