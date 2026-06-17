@@ -4,6 +4,6 @@ module main(){
     }
     node sw type=switch;
     for i in (0, 2){
-        link n{i} sw bandwidth=200[Gbps] latency=1us
+        link n{i} sw bandwidth=200[Gbps] latency=1[us];
     }
 }
