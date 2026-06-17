@@ -15,6 +15,10 @@ using namespace ns3;
 
 int main(int argc, char *argv[]) {
     NS_LOG_COMPONENT_DEFINE("SCRATCH");
+    uint32_t inputBytes = (1 << 20);
+	CommandLine cmd;
+	cmd.AddValue("inputBytes", "Total input size in bytes", inputBytes);
+	cmd.Parse(argc, argv);
     #ifdef FLOW_ID_TEST
     NodeContainer gpunodes;
     NodeContainer swtches;
