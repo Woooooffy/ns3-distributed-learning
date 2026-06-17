@@ -70,22 +70,13 @@ namespace ns3 {
 										receivedBytes(0), pendingBytes(bytes), op(Op), srcBuf(srcbuf), srcOffset(srcoff), dstBuf(dstbuf), dstOffset(dstoff){}
 	};
 
-	// a single on-wire fragment of a Send(), queued for pacing onto the NIC
+	// a single on-wire fragment of a Send(), queued for pacing onto the NIC.
+	// the packet is fully constructed at Send() time so source data is captured
+	// before any concurrent receive operations can overwrite the source buffer.
 	struct PendingFragment{
-		uint32_t fragOffset; // byte offset within the logical transfer
-		uint32_t fragPayload; // payload bytes carried by this fragment
-		uint32_t totalBytes; // total payload bytes of the logical transfer (for header)
-		uint16_t channel;
-		uint16_t dstGpu;
-		uint16_t dstBuf;
-		int16_t dstOff;
-		int flowId;
-		const uint8_t* srcBase; // pointer to start of src region, nullptr if correctness check disabled
-		Ptr<Socket> sock; // socket (channel-specific) to send this fragment through
-		PendingFragment(uint32_t fragOff, uint32_t fragPay, uint32_t total, uint16_t chan, uint16_t dstGpu_, uint16_t dstBuf_, int16_t dstOff_,
-		                int flow, const uint8_t* src, Ptr<Socket> sock_):
-			fragOffset(fragOff), fragPayload(fragPay), totalBytes(total), channel(chan), dstGpu(dstGpu_), dstBuf(dstBuf_), dstOff(dstOff_),
-			flowId(flow), srcBase(src), sock(sock_){}
+		Ptr<Packet> packet; // fully constructed, header already attached
+		Ptr<Socket> sock;   // channel-specific socket to send through
+		PendingFragment(Ptr<Packet> pkt, Ptr<Socket> s) : packet(pkt), sock(s) {}
 	};
 
 	// helper class for channel modeling

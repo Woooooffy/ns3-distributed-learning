@@ -285,8 +285,13 @@ namespace ns3 {
 		uint32_t offset = 0;
 		while (offset < totalBytes){
 			uint32_t fragPayload = std::min(maxPayload, totalBytes - offset);
-			totalWireBytes += fragPayload + headerSize;
-			frags.emplace(offset, fragPayload, totalBytes, static_cast<uint16_t>(m_id), static_cast<uint16_t>(sendpeer), dstbuf, dstoff, flowId, srcData, sock);
+			Ptr<Packet> pkt = srcData
+			    ? Create<ns3::Packet>(srcData + offset, fragPayload)
+			    : Create<ns3::Packet>(fragPayload);
+			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
+			pkt->AddHeader(fragHdr);
+			totalWireBytes += pkt->GetSize();
+			frags.emplace(pkt, sock);
 			offset += fragPayload;
 		}
 
@@ -672,18 +677,14 @@ namespace ns3 {
 		PendingFragment frag = fragQueue.front();
 		fragQueue.pop();
 
-		Ptr<Packet> pkt = frag.srcBase
-		    ? Create<ns3::Packet>(frag.srcBase + frag.fragOffset, frag.fragPayload)
-		    : Create<ns3::Packet>(frag.fragPayload);
-		MscclHeader fragHdr(GetNode()->GetId(), frag.dstGpu, frag.channel, frag.dstBuf, static_cast<uint16_t>(frag.dstOff), frag.totalBytes, frag.flowId, frag.fragOffset);
-		pkt->AddHeader(fragHdr);
-		uint32_t wireSize = pkt->GetSize();
+		// capture size before sock->Send, which may let the device add its own header
+		uint32_t wireSize = frag.packet->GetSize();
 
-		int result = frag.sock->Send(pkt, 0);
+		int result = frag.sock->Send(frag.packet, 0);
 		if (result < 0){
-			NS_FATAL_ERROR("Node " << GetNode()->GetId() << " chan " << (int)frag.channel
-				<< ": sock->Send() failed (returned " << result << ") to peer " << frag.dstGpu
-				<< " fragOffset=" << frag.fragOffset << " fragPayload=" << frag.fragPayload
+			NS_FATAL_ERROR("Node " << GetNode()->GetId()
+				<< ": sock->Send() failed (returned " << result << ")"
+				<< " wireSize=" << wireSize
 				<< " txAvail=" << frag.sock->GetTxAvailable());
 		}
 
