@@ -15,6 +15,7 @@ using namespace ns3;
 
 int main(int argc, char *argv[]) {
     NS_LOG_COMPONENT_DEFINE("SCRATCH");
+    LogComponentEnable("CustomSwitchImpl", LOG_LEVEL_INFO);
     uint32_t inputBytes = (1 << 20);
 	CommandLine cmd;
 	cmd.AddValue("inputBytes", "Total input size in bytes", inputBytes);
@@ -24,6 +25,12 @@ int main(int argc, char *argv[]) {
     NodeContainer swtches;
     P4Helper sw_helper;
     sw_helper.SetDeviceAttribute("EnableCustomImpl", BooleanValue(true));
+    // Two 200Gbps streams can converge on a single output port (e.g. GPU0→GPU2
+    // and GPU1→GPU2 both start at the same simulated tick).  With INPUT_BYTES/MTU
+    // fragments per stream, the switch's per-port queue must hold at least that
+    // many packets or it silently drops fragments and the allgather produces zeros.
+    // 1 000 000 >> any transfer size we intend to test here.
+    sw_helper.SetDeviceAttribute("QueueMaxSize", UintegerValue(500000));
 
     gpunodes.Create<GPU>(3);
     swtches.Create(1);
