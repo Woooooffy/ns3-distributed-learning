@@ -641,6 +641,12 @@ namespace ns3 {
 		if (dev->GetAttributeFailSafe("DataRate", drValue)){
 			return drValue.Get().CalculateBytesTxTime(bytes);
 		}
+		// Some devices (e.g. SwitchedEthernetHostDevice) store DataRate on the
+		// channel rather than on the device itself
+		Ptr<Channel> ch = dev->GetChannel();
+		if (ch && ch->GetAttributeFailSafe("DataRate", drValue)){
+			return drValue.Get().CalculateBytesTxTime(bytes);
+		}
 		return Time(0);
 	}
 
