@@ -69,5 +69,8 @@ UNIT: "Gbps" | "Mbps" | "Kbps" | "GBps" | "MBps" | "KBps" | "ns" | "us" | "ms"
 // ----------------- TOKENS -----------------
 %import common.CNAME -> NAME
 %import common.NUMBER
+COMMENT: "//" /[^\n]*/
+
 %import common.WS
 %ignore WS
+%ignore COMMENT

@@ -1,49 +1,57 @@
-module gpu_server(R){
-	node nvswitch type=nvswitch;
-	for r in (0, R - 1){
-		node gpu{r} type=gpu;
-		link gpu{r} nvswitch bandwidth=900[GBps] latency=100[ns];
-	}
+// k-ary fat tree: k pods, k/2 edge switches and k/2 aggregation switches per pod,
+// k/2 GPUs per edge switch, and (k/2)^2 core switches.
+// All links are 400 Gbps / 700 ns.
+
+// One edge switch with k/2 attached GPUs.
+module rack(k) {
+    node sw type=switch;
+    for h in (1, k / 2) {
+        node gpu{h} type=gpu;
+        link sw gpu{h} bandwidth=400[Gbps] latency=700[ns];
+    }
 }
 
-module core_group(C){
-	for c in (0, C - 1){
-		node sw{c} type=switch;
-	}
+// One pod: k/2 edge racks and k/2 aggregation switches, fully connected.
+module pod(k) {
+    for j in (1, k / 2) {
+        use rack(k) as esw{j};
+    }
+    for i in (1, k / 2) {
+        node asw{i} type=switch;
+    }
+    for j in (1, k / 2) {
+        for i in (1, k / 2) {
+            link esw{j}.sw asw{i} bandwidth=400[Gbps] latency=700[ns];
+        }
+    }
 }
 
-module pod(K){
-	for e in (0, K / 2 - 1){
-		node edge{e} type=switch;
-	}
-	for s in (0, K / 2 - 1){
-		use gpu_server(K / 2) as server{s};
-		for r in (0, K / 2 - 1){
-			link server{s}.gpu{r} edge{r} bandwidth=400[Gbps] latency=700[ns];
-		}
-	}
-	for a in (0, K / 2 - 1){
-		node agg{a} type=switch;
-		for e in (0, K / 2 - 1){
-			link agg{a} edge{e} bandwidth=400[Gbps] latency=700[ns];
-		}
-	}
+// One group of k/2 core switches (there are k/2 groups, one per aggregation index).
+module core_group(k) {
+    for j in (1, k / 2) {
+        node csw{j} type=switch;
+    }
 }
 
-module fatTree(K){
-	for p in (0, K - 1){
-		use pod(K) as p{p};
-	}
-	for g in (0, K / 2 - 1){
-		use core_group(K / 2) as core{g};
-		for c in (0, K / 2 - 1){
-			for p in (0, K - 1){
-				link core{g}.sw{c} p{p}.agg{g} bandwidth=400[Gbps] latency=700[ns];
-			}
-		}
-	}
+// Full k-ary fat tree.
+// Aggregation switch i in every pod connects to every switch in core group i,
+// giving each aggregation switch k/2 uplinks and each core switch k downlinks.
+module fat_tree(k) {
+    for p in (1, k) {
+        use pod(k) as pod{p};
+    }
+    for i in (1, k / 2) {
+        use core_group(k) as cg{i};
+    }
+    for p in (1, k) {
+        for i in (1, k / 2) {
+            for j in (1, k / 2) {
+                link pod{p}.asw{i} cg{i}.csw{j} bandwidth=400[Gbps] latency=700[ns];
+            }
+        }
+    }
 }
 
-module main(){
-	use fatTree(4) as ft;
+module main() {
+    use fat_tree(4) as ft;
 }
