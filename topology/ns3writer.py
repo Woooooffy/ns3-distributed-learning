@@ -539,7 +539,8 @@ class NS3Writer:
 			self.emit("{")
 			self.indent += 1
 			self.emit(f"Ptr<RdmaHw> {var_hw} = CreateObject<RdmaHw>();")
-			self.emit(f'{var_hw}->SetAttribute("CcMode", UintegerValue(3));')
+			self.emit("// CC_MODE {Specifying different CC. 1: DCQCN, 3: HPCC, 7: TIMELY, 8: DCTCP, 10: HPCC-PINT}")
+			self.emit(f'{var_hw}->SetAttribute("CcMode", UintegerValue(12));')
 			self.emit(f"Ptr<RdmaDriver> {var_drv} = CreateObject<RdmaDriver>();")
 			self.emit(f"{var_drv}->SetNode(gpunodes.Get({gpu_idx}));")
 			self.emit(f"{var_drv}->SetRdmaHw({var_hw});")
