@@ -5,6 +5,7 @@
 #include "ns3/enum.h"
 namespace ns3 {
 static const uint16_t COLLECTIVES_PROTOCOL = 0x9500;
+static const uint16_t MSCCL_UDP_BASE_PORT  = 5000;
 class DataType {
 	public:
 		enum Type : uint8_t {

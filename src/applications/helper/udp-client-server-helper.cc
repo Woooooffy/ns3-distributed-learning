@@ -1,16 +1,26 @@
 /*
  * Copyright (c) 2008 INRIA
  *
- * SPDX-License-Identifier: GPL-2.0-only
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Mohamed Amine Ismail <amine.ismail@sophia.inria.fr>
  */
 
 #include "udp-client-server-helper.h"
 
-#include "ns3/address-utils.h"
-#include "ns3/string.h"
-#include "ns3/uinteger.h"
+#include <ns3/string.h>
+#include <ns3/uinteger.h>
 
 namespace ns3
 {
@@ -26,12 +36,6 @@ UdpServerHelper::UdpServerHelper(uint16_t port)
     SetAttribute("Port", UintegerValue(port));
 }
 
-UdpServerHelper::UdpServerHelper(const Address& address)
-    : UdpServerHelper()
-{
-    SetAttribute("Local", AddressValue(address));
-}
-
 UdpClientHelper::UdpClientHelper()
     : ApplicationHelper(UdpClient::GetTypeId())
 {
@@ -40,12 +44,13 @@ UdpClientHelper::UdpClientHelper()
 UdpClientHelper::UdpClientHelper(const Address& address)
     : UdpClientHelper()
 {
-    SetAttribute("Remote", AddressValue(address));
+    SetAttribute("RemoteAddress", AddressValue(address));
 }
 
 UdpClientHelper::UdpClientHelper(const Address& address, uint16_t port)
-    : UdpClientHelper(addressUtils::ConvertToSocketAddress(address, port))
+    : UdpClientHelper(address)
 {
+    SetAttribute("RemotePort", UintegerValue(port));
 }
 
 UdpTraceClientHelper::UdpTraceClientHelper()
@@ -56,15 +61,16 @@ UdpTraceClientHelper::UdpTraceClientHelper()
 UdpTraceClientHelper::UdpTraceClientHelper(const Address& address, const std::string& filename)
     : UdpTraceClientHelper()
 {
-    SetAttribute("Remote", AddressValue(address));
+    SetAttribute("RemoteAddress", AddressValue(address));
     SetAttribute("TraceFilename", StringValue(filename));
 }
 
 UdpTraceClientHelper::UdpTraceClientHelper(const Address& address,
                                            uint16_t port,
                                            const std::string& filename)
-    : UdpTraceClientHelper(addressUtils::ConvertToSocketAddress(address, port), filename)
+    : UdpTraceClientHelper(address, filename)
 {
+    SetAttribute("RemotePort", UintegerValue(port));
 }
 
 } // namespace ns3

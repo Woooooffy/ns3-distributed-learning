@@ -2,7 +2,18 @@
  * Copyright (c) 2009 INRIA
  * Copyright (c) 2016 Universita' di Firenze (added echo fields)
  *
- * SPDX-License-Identifier: GPL-2.0-only
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Tommaso Pecorella <tommaso.pecorella@unifi.it>
  */
@@ -24,7 +35,7 @@ NS_OBJECT_ENSURE_REGISTERED(SeqTsEchoHeader);
 SeqTsEchoHeader::SeqTsEchoHeader()
     : m_seq(0),
       m_tsValue(Simulator::Now()),
-      m_tsEchoReply()
+      m_tsEchoReply(Seconds(0))
 {
     NS_LOG_FUNCTION(this);
 }

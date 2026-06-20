@@ -14,9 +14,16 @@ class NS3MakeGPUs(NS3Insn):
 class NS3MakeSwitches(NS3Insn):
 	def __init__(self, n: int):
 		self.n_switches: int = n
-	
+
 	def __repr__(self) -> str:
-		return f"Create {self.n_switches} NS3 switches"
+		return f"Create {self.n_switches} NS3 NVSwitches"
+
+class NS3MakeRegSwitches(NS3Insn):
+	def __init__(self, n: int):
+		self.n_regswitches: int = n
+
+	def __repr__(self) -> str:
+		return f"Create {self.n_regswitches} NS3 SwitchNodes"
 
 '''
 class NS3GetNode(NS3Insn):
@@ -58,18 +65,24 @@ class NS3InstallLink(NS3Insn):
 class NS3CodeGenerator():
 	def __init__(self, modules: dict[str, Block]):
 		self.gpus: dict[str, int] = {}
-		self.switches: dict[str, int] = {}
+		self.nvswitches: dict[str, int] = {}    # "nvswitch" nodes → NVSwitch P4 model
+		self.reg_switches: dict[str, int] = {}  # "switch" nodes  → SwitchNode ECMP model
 		self.insns: list[NS3Insn] = []
 		self.modules: dict[str, Block] = modules
 		self.gpu_counter: int = 0
-		self.switch_counter: int = 0
+		self.nvswitch_counter: int = 0
+		self.reg_switch_counter: int = 0
 		self.link_helpers: dict[tuple[Any], int] = {}
 		self.link_helper_counter = 0
 		self.switch_helpers: dict[tuple[Any], list[int]] = {}
 
 	def Generate(self) -> None:
 		self.GenerateModule(self.modules["main"])
-		insns = [NS3MakeGPUs(self.gpu_counter), NS3MakeSwitches(self.switch_counter)]
+		insns = [
+			NS3MakeGPUs(self.gpu_counter),
+			NS3MakeSwitches(self.nvswitch_counter),
+			NS3MakeRegSwitches(self.reg_switch_counter),
+		]
 		for tup, id in self.link_helpers.items():
 			args = {"latency": tup[0], "bandwidth": tup[1], "mtu": tup[2], "type": tup[3]}
 			insns.append(NS3MakeLinkHelper(id, **args))
@@ -114,15 +127,19 @@ class NS3CodeGenerator():
 			case "gpu":
 				self.gpus[name] = self.gpu_counter
 				self.gpu_counter += 1
-			case "switch" | "nvswitch":
-				self.switches[name] = self.switch_counter
-				self.switch_counter += 1
-				#TODO proper modeling of switch attributes
-				mtu = 9000# fixed default for now
+			case "nvswitch":
+				self.nvswitches[name] = self.nvswitch_counter
+				self.nvswitch_counter += 1
+				# NVSwitches use P4SwitchNetDevice; register them for the switch helper
+				mtu = 9000  # fixed default for now
 				attr = (mtu,)
 				if self.switch_helpers.get(attr) is None:
 					self.switch_helpers[attr] = []
-				self.switch_helpers[attr].append(self.switches[name])
+				self.switch_helpers[attr].append(self.nvswitches[name])
+			case "switch":
+				# Regular Ethernet switches: use SwitchNode (ECMP/flow-ID routing)
+				self.reg_switches[name] = self.reg_switch_counter
+				self.reg_switch_counter += 1
 			case _:
 				raise RuntimeError(f"Unrecognized node type {type}")
 	
@@ -138,8 +155,8 @@ class NS3CodeGenerator():
 			src = pre + "_" + src
 			dst = pre + "_" + dst
 		# assumes nodes declared before building link
-		# TODO better type modeling
-		if src in self.switches or dst in self.switches:
+		# NVSwitch links stay Ethernet; reg-switch and GPU-GPU links use P2P
+		if src in self.nvswitches or dst in self.nvswitches:
 			type = "eth"
 		else:
 			type = "p2p"

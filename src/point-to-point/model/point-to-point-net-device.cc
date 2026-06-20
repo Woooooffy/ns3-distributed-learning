@@ -8,6 +8,7 @@
 
 #include "point-to-point-channel.h"
 #include "ppp-header.h"
+#include "switch-node.h"
 
 #include "ns3/error-model.h"
 #include "ns3/llc-snap-header.h"
@@ -369,6 +370,17 @@ PointToPointNetDevice::Receive(Ptr<Packet> packet)
         }
 
         m_macRxTrace(originalPacket);
+
+        // If this device is attached to a SwitchNode, let the switch do IP
+        // forwarding (ECMP / flow-ID) instead of passing up a host stack.
+        if (GetNode()->GetNodeType() == 1) {
+            Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(GetNode());
+            if (sw) {
+                sw->IpForward(this, packet, protocol);
+                return;
+            }
+        }
+
         m_rxCallback(this, packet, protocol, GetRemote());
     }
 }

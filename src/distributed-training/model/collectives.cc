@@ -5,6 +5,8 @@
 // reserved when sizing fragments and used to keep fragment pacing from
 // outrunning the device's actual transmission time
 #define MSCCL_L2_OVERHEAD_BYTES 14
+// IP (20) + UDP (8) added by the network stack for switch-path peers
+#define MSCCL_UDP_OVERHEAD_BYTES 28
 
 // flags are a 3-tuple of (workindex, gridoffset_iter, step) and it follows a lexicographical order. a threadblock is ahead of another iff its flag is ahead
 #define COMPUTE_FLAG(__WORKINDEX__,__GRIDOFFSET_ITER__,__STEP__) \
@@ -56,28 +58,51 @@ namespace ns3 {
 	#endif
 
 	void MscclChannel::ConnectSendPeer(int peerId){
-		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
-		PacketSocketAddress addr;
-		addr.SetSingleDevice(m_app->GetSendDevicePeer(peerId, m_id)->GetIfIndex());
-		addr.SetPhysicalAddress(m_app->GetPeerAddr(peerId, m_id));
-		addr.SetProtocol(COLLECTIVES_PROTOCOL);
+		Ipv4Address peerIp = m_app->GetPeerIpAddr(peerId, m_id);
+		bool useUdp = (peerIp != Ipv4Address());
 
-		sock->Bind(addr);
-		sock->Connect(addr);
-		// sock->SetRecvCallback(MakeCallback(&MscclChannel::RecvCallback, this));
-		sock->SetDataSentCallback(MakeCallback(&MscclChannel::SendCallback, this));
-		m_sendPeerSockets[peerId] = sock;
+		if (useUdp) {
+			Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), UdpSocketFactory::GetTypeId());
+			InetSocketAddress remote(peerIp, MSCCL_UDP_BASE_PORT + m_id);
+			sock->Connect(remote);
+			sock->SetDataSentCallback(MakeCallback(&MscclChannel::SendCallback, this));
+			m_sendPeerSockets[peerId] = sock;
+			m_udpSendPeers.insert(peerId);
+		} else {
+			Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
+			PacketSocketAddress addr;
+			addr.SetSingleDevice(m_app->GetSendDevicePeer(peerId, m_id)->GetIfIndex());
+			addr.SetPhysicalAddress(m_app->GetPeerAddr(peerId, m_id));
+			addr.SetProtocol(COLLECTIVES_PROTOCOL);
+			sock->Bind(addr);
+			sock->Connect(addr);
+			sock->SetDataSentCallback(MakeCallback(&MscclChannel::SendCallback, this));
+			m_sendPeerSockets[peerId] = sock;
+		}
 	}
 
 	void MscclChannel::SetupRecvPeer(int peerId) {
-		Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
-		PacketSocketAddress addr;
-		addr.SetSingleDevice(m_app->GetRecvDevicePeer(peerId, m_id)->GetIfIndex());
-		addr.SetProtocol(COLLECTIVES_PROTOCOL);
-		sock->Bind(addr);
-		m_recvSocketPeers[sock] = peerId;
-		sock->SetRecvCallback(MakeCallback(&MscclChannel::RecvCallback, this));
-		// sock->SetDataSentCallback(MakeCallback(&MscclChannel::SendCallback, this));
+		Ipv4Address peerIp = m_app->GetPeerIpAddr(peerId, m_id);
+		bool useUdp = (peerIp != Ipv4Address());
+
+		if (useUdp) {
+			// All UDP peers on this channel share one listen socket bound to the channel port.
+			if (!m_listenSocket) {
+				m_listenSocket = Socket::CreateSocket(m_app->GetNode(), UdpSocketFactory::GetTypeId());
+				InetSocketAddress local(Ipv4Address::GetAny(), MSCCL_UDP_BASE_PORT + m_id);
+				m_listenSocket->Bind(local);
+				m_listenSocket->SetRecvCallback(MakeCallback(&MscclChannel::RecvCallback, this));
+			}
+			// Peer ID is inferred from MscclHeader::GetSrcGpu() in RecvCallback.
+		} else {
+			Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
+			PacketSocketAddress addr;
+			addr.SetSingleDevice(m_app->GetRecvDevicePeer(peerId, m_id)->GetIfIndex());
+			addr.SetProtocol(COLLECTIVES_PROTOCOL);
+			sock->Bind(addr);
+			m_recvSocketPeers[sock] = peerId;
+			sock->SetRecvCallback(MakeCallback(&MscclChannel::RecvCallback, this));
+		}
 	}
 
 	void MscclChannel::SendCallback(Ptr<Socket> sock, uint32_t bytes){
@@ -151,16 +176,24 @@ namespace ns3 {
 			uint8_t* tmp = (uint8_t*) malloc(recvSize);
 			packet->CopyData(tmp, recvSize);
 			size_t tmp_offset = 0;
-			// peer
-			uint16_t peerId = static_cast<uint16_t>(m_recvSocketPeers.at(sock));
-			if (peerId != hdr.GetSrcGpu() || m_app->GetNode()->GetId() != hdr.GetDstGpu()){
-					// debug prints for now
-					// TODO: forwarding not yet handled
-				// happens rn because all sockets on the node receives and forwards up.
-				// to be fixed
-				NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": discarding packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expected peer " << peerId << ". fragOff=" << hdr.GetFragByteOffset() << " totalBytes=" << hdr.GetBytes());
-				free(tmp);
-				continue;
+			// peer identification: for the shared UDP listen socket use the header's
+			// srcGpu field; for per-peer L2 sockets use the socket→peer map.
+			uint16_t peerId;
+			if (sock == m_listenSocket) {
+				// UDP path: sender is whoever the header claims
+				peerId = hdr.GetSrcGpu();
+				if (m_app->GetNode()->GetId() != hdr.GetDstGpu()) {
+					NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": UDP: discarding packet addressed to " << hdr.GetDstGpu() << ". fragOff=" << hdr.GetFragByteOffset() << " totalBytes=" << hdr.GetBytes());
+					free(tmp);
+					continue;
+				}
+			} else {
+				peerId = static_cast<uint16_t>(m_recvSocketPeers.at(sock));
+				if (peerId != hdr.GetSrcGpu() || m_app->GetNode()->GetId() != hdr.GetDstGpu()){
+					NS_LOG_DEBUG("Node " << m_app->GetNode()->GetId() << " chan " << (int)m_id << ": discarding packet from " << hdr.GetSrcGpu() << " to " << hdr.GetDstGpu() << ", expected peer " << peerId << ". fragOff=" << hdr.GetFragByteOffset() << " totalBytes=" << hdr.GetBytes());
+					free(tmp);
+					continue;
+				}
 			}
 			if (m_id != hdr.GetChannel()){
 				// expected to happen sometimes
@@ -270,7 +303,8 @@ namespace ns3 {
 		uint32_t mtu = dev->GetMtu();
 		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
 		uint32_t headerSize = templateHdr.GetSerializedSize();
-		uint32_t maxPayload = mtu - headerSize - MSCCL_L2_OVERHEAD_BYTES;
+		uint32_t overhead = m_udpSendPeers.count(sendpeer) ? MSCCL_UDP_OVERHEAD_BYTES : MSCCL_L2_OVERHEAD_BYTES;
+		uint32_t maxPayload = mtu - headerSize - overhead;
 		// round down to a multiple of the element size so fragment boundaries
 		// never split an element; otherwise ReduceAdd misaligns across fragments
 		uint32_t elemSize = DataType::GetSizeBytes(m_dataType);
@@ -291,7 +325,7 @@ namespace ns3 {
 			MscclHeader fragHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId, offset);
 			pkt->AddHeader(fragHdr);
 			totalWireBytes += pkt->GetSize();
-			frags.emplace(pkt, sock);
+			frags.emplace(pkt, sock, overhead);
 			offset += fragPayload;
 		}
 
@@ -431,6 +465,10 @@ namespace ns3 {
 	Address CollectivesApplication::GetPeerAddr(int16_t peer, int ind){
 		// TODO fix hard coding node downcast type
 		return DynamicCast<GPU>(GetNode())->GetPeerAddr(peer, ind);
+	}
+
+	Ipv4Address CollectivesApplication::GetPeerIpAddr(int16_t peer, int ind){
+		return DynamicCast<GPU>(GetNode())->GetPeerIpAddr(peer, ind);
 	}
 
 	Ptr<NetDevice> CollectivesApplication::GetSendDevicePeer(int16_t peer, int ind){
@@ -689,12 +727,10 @@ namespace ns3 {
 		}
 
 		if (!fragQueue.empty()){
-			// pad by the same L2 overhead margin used to size fragments in Send(), so our
-			// pacing never runs ahead of the device's actual transmission time (which
-			// includes link-layer headers we don't account for in wireSize). Otherwise
-			// the small per-fragment drift accumulates across the simulation and
-			// eventually overflows the device's TX queue.
-			Simulator::Schedule(GetTxTime(dev, wireSize + MSCCL_L2_OVERHEAD_BYTES), &CollectivesApplication::SendNextFragment, this, dev);
+			// pad by the overhead used to size fragments in Send(), so pacing never
+			// runs ahead of the device's actual transmission time (which includes
+			// protocol headers not reflected in wireSize).
+			Simulator::Schedule(GetTxTime(dev, wireSize + frag.overhead), &CollectivesApplication::SendNextFragment, this, dev);
 		} else {
 			m_sendInFlight[dev] = false;
 		}

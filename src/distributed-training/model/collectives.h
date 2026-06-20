@@ -76,7 +76,8 @@ namespace ns3 {
 	struct PendingFragment{
 		Ptr<Packet> packet; // fully constructed, header already attached
 		Ptr<Socket> sock;   // channel-specific socket to send through
-		PendingFragment(Ptr<Packet> pkt, Ptr<Socket> s) : packet(pkt), sock(s) {}
+		uint32_t overhead;  // bytes added by network stack below our packet (IP+UDP or L2)
+		PendingFragment(Ptr<Packet> pkt, Ptr<Socket> s, uint32_t oh) : packet(pkt), sock(s), overhead(oh) {}
 	};
 
 	// helper class for channel modeling
@@ -115,6 +116,7 @@ namespace ns3 {
 			Ptr<Socket> m_listenSocket;
 			std::map<int16_t, Ptr<Socket>> m_sendPeerSockets;
 			std::map<Ptr<Socket>, int16_t> m_recvSocketPeers;
+			std::unordered_set<int16_t> m_udpSendPeers; // peers reached via UDP/IP (switch path)
 			// std::map<int16_t, std::queue<PendingTransfer>> m_pendingRecvs;
 			std::map<std::pair<uint16_t, uint16_t>, PendingTransfer> m_pendingRecvByBufferRegion;
 			std::map<std::pair<uint16_t, uint16_t>, bool> m_recvReadyByBufferRegion;
@@ -137,6 +139,7 @@ namespace ns3 {
 			void SetAlgo(mscclAlgorithm* algo);
 			void SetCurrChunkSize(uint32_t chunksize);
 			Address GetPeerAddr(int16_t peerId, int id);
+			Ipv4Address GetPeerIpAddr(int16_t peerId, int id);
 			Ptr<NetDevice> GetSendDevicePeer(int16_t peerId, int id);
 			Ptr<NetDevice> GetRecvDevicePeer(int16_t peerId, int id);
 			int GetPort();

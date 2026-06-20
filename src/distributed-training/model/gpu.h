@@ -4,6 +4,7 @@
 #include "ns3/network-module.h"
 #include "ns3/core-module.h"
 #include "ns3/type-id.h"
+#include "ns3/ipv4-address.h"
 #include "msccl.h"
 #include <ostream>
 #include <map>
@@ -27,6 +28,11 @@ namespace ns3
 		void PushRecvPeerDevice(int16_t peer, Ptr<NetDevice> dev);
 		void PushSendPeerDevice(int16_t peer, Ptr<NetDevice> dev);
 		void PushPeerAddr(int16_t peer, Address addr);
+		// IP addresses for peers reachable via switch (QBB/P2P RDMA path)
+		void PushPeerIpAddr(int16_t peer, Ipv4Address addr);
+		Ipv4Address GetPeerIpAddr(int16_t peer, int ind) const;
+		// Returns peer ID whose primary IP matches addr, or -1 if not found
+		int16_t GetPeerIdFromIp(Ipv4Address addr) const;
 		std::ostream& DumpAlgo(std::ostream& oss);
 
 		private:
@@ -35,6 +41,7 @@ namespace ns3
 		std::map<int16_t, std::vector<Ptr<NetDevice>>> m_recvDevicePeer;
 		std::map<int16_t, std::vector<Ptr<NetDevice>>> m_sendDevicePeer;
 		std::map<int16_t, std::vector<Address>> m_sendPeerAddr;
+		std::map<int16_t, std::vector<Ipv4Address>> m_peerIpv4Addr;
 	};
 }
 #endif 

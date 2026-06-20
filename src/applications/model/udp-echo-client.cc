@@ -1,11 +1,25 @@
 /*
  * Copyright 2007 University of Washington
  *
- * SPDX-License-Identifier: GPL-2.0-only
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include "udp-echo-client.h"
 
-#include "ns3/address-utils.h"
+#include "ns3/inet-socket-address.h"
+#include "ns3/inet6-socket-address.h"
+#include "ns3/ipv4-address.h"
+#include "ns3/ipv6-address.h"
 #include "ns3/log.h"
 #include "ns3/nstime.h"
 #include "ns3/packet.h"
@@ -27,7 +41,7 @@ UdpEchoClient::GetTypeId()
 {
     static TypeId tid =
         TypeId("ns3::UdpEchoClient")
-            .SetParent<SourceApplication>()
+            .SetParent<Application>()
             .SetGroupName("Applications")
             .AddConstructor<UdpEchoClient>()
             .AddAttribute(
@@ -38,29 +52,25 @@ UdpEchoClient::GetTypeId()
                 MakeUintegerChecker<uint32_t>())
             .AddAttribute("Interval",
                           "The time to wait between packets",
-                          TimeValue(Seconds(1)),
+                          TimeValue(Seconds(1.0)),
                           MakeTimeAccessor(&UdpEchoClient::m_interval),
                           MakeTimeChecker())
-            // NS_DEPRECATED_3_44
-            .AddAttribute(
-                "RemoteAddress",
-                "The destination Address of the outbound packets",
-                AddressValue(),
-                MakeAddressAccessor(
-                    // this is needed to indicate which version of the function overload to use
-                    static_cast<void (UdpEchoClient::*)(const Address&)>(&UdpEchoClient::SetRemote),
-                    &UdpEchoClient::GetRemote),
-                MakeAddressChecker(),
-                TypeId::SupportLevel::DEPRECATED,
-                "Replaced by Remote in ns-3.44.")
-            // NS_DEPRECATED_3_44
+            .AddAttribute("RemoteAddress",
+                          "The destination Address of the outbound packets",
+                          AddressValue(),
+                          MakeAddressAccessor(&UdpEchoClient::m_peerAddress),
+                          MakeAddressChecker())
             .AddAttribute("RemotePort",
                           "The destination port of the outbound packets",
-                          UintegerValue(UdpEchoClient::DEFAULT_PORT),
-                          MakeUintegerAccessor(&UdpEchoClient::SetPort, &UdpEchoClient::GetPort),
-                          MakeUintegerChecker<uint16_t>(),
-                          TypeId::SupportLevel::DEPRECATED,
-                          "Replaced by Remote in ns-3.44.")
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&UdpEchoClient::m_peerPort),
+                          MakeUintegerChecker<uint16_t>())
+            .AddAttribute("Tos",
+                          "The Type of Service used to send IPv4 packets. "
+                          "All 8 bits of the TOS byte are set (including ECN bits).",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&UdpEchoClient::m_tos),
+                          MakeUintegerChecker<uint8_t>())
             .AddAttribute(
                 "PacketSize",
                 "Size of echo data in outbound packets",
@@ -87,14 +97,13 @@ UdpEchoClient::GetTypeId()
 }
 
 UdpEchoClient::UdpEchoClient()
-    : m_dataSize{0},
-      m_data{nullptr},
-      m_sent{0},
-      m_socket{nullptr},
-      m_peerPort{},
-      m_sendEvent{}
 {
     NS_LOG_FUNCTION(this);
+    m_sent = 0;
+    m_socket = nullptr;
+    m_sendEvent = EventId();
+    m_data = nullptr;
+    m_dataSize = 0;
 }
 
 UdpEchoClient::~UdpEchoClient()
@@ -108,65 +117,18 @@ UdpEchoClient::~UdpEchoClient()
 }
 
 void
-UdpEchoClient::SetRemote(const Address& ip, uint16_t port)
+UdpEchoClient::SetRemote(Address ip, uint16_t port)
 {
     NS_LOG_FUNCTION(this << ip << port);
-    SetRemote(ip);
-    SetPort(port);
+    m_peerAddress = ip;
+    m_peerPort = port;
 }
 
 void
-UdpEchoClient::SetRemote(const Address& addr)
+UdpEchoClient::SetRemote(Address addr)
 {
     NS_LOG_FUNCTION(this << addr);
-    if (!addr.IsInvalid())
-    {
-        m_peer = addr;
-        if (m_peerPort)
-        {
-            SetPort(*m_peerPort);
-        }
-    }
-}
-
-Address
-UdpEchoClient::GetRemote() const
-{
-    return m_peer;
-}
-
-void
-UdpEchoClient::SetPort(uint16_t port)
-{
-    NS_LOG_FUNCTION(this << port);
-    if (m_peer.IsInvalid())
-    {
-        // save for later
-        m_peerPort = port;
-        return;
-    }
-    if (Ipv4Address::IsMatchingType(m_peer) || Ipv6Address::IsMatchingType(m_peer))
-    {
-        m_peer = addressUtils::ConvertToSocketAddress(m_peer, port);
-    }
-}
-
-uint16_t
-UdpEchoClient::GetPort() const
-{
-    if (m_peer.IsInvalid())
-    {
-        return m_peerPort.value_or(UdpEchoClient::DEFAULT_PORT);
-    }
-    if (InetSocketAddress::IsMatchingType(m_peer))
-    {
-        return InetSocketAddress::ConvertFrom(m_peer).GetPort();
-    }
-    else if (Inet6SocketAddress::IsMatchingType(m_peer))
-    {
-        return Inet6SocketAddress::ConvertFrom(m_peer).GetPort();
-    }
-    return UdpEchoClient::DEFAULT_PORT;
+    m_peerAddress = addr;
 }
 
 void
@@ -176,48 +138,53 @@ UdpEchoClient::StartApplication()
 
     if (!m_socket)
     {
-        auto tid = TypeId::LookupByName("ns3::UdpSocketFactory");
+        TypeId tid = TypeId::LookupByName("ns3::UdpSocketFactory");
         m_socket = Socket::CreateSocket(GetNode(), tid);
-        NS_ABORT_MSG_IF(m_peer.IsInvalid(), "Remote address not properly set");
-        if (!m_local.IsInvalid())
+        NS_ABORT_MSG_IF(m_peerAddress.IsInvalid(), "'RemoteAddress' attribute not properly set");
+        if (Ipv4Address::IsMatchingType(m_peerAddress))
         {
-            NS_ABORT_MSG_IF((Inet6SocketAddress::IsMatchingType(m_peer) &&
-                             InetSocketAddress::IsMatchingType(m_local)) ||
-                                (InetSocketAddress::IsMatchingType(m_peer) &&
-                                 Inet6SocketAddress::IsMatchingType(m_local)),
-                            "Incompatible peer and local address IP version");
-            if (m_socket->Bind(m_local) == -1)
+            if (m_socket->Bind() == -1)
             {
                 NS_FATAL_ERROR("Failed to bind socket");
             }
+            m_socket->SetIpTos(m_tos); // Affects only IPv4 sockets.
+            m_socket->Connect(
+                InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
+        }
+        else if (Ipv6Address::IsMatchingType(m_peerAddress))
+        {
+            if (m_socket->Bind6() == -1)
+            {
+                NS_FATAL_ERROR("Failed to bind socket");
+            }
+            m_socket->Connect(
+                Inet6SocketAddress(Ipv6Address::ConvertFrom(m_peerAddress), m_peerPort));
+        }
+        else if (InetSocketAddress::IsMatchingType(m_peerAddress))
+        {
+            if (m_socket->Bind() == -1)
+            {
+                NS_FATAL_ERROR("Failed to bind socket");
+            }
+            m_socket->SetIpTos(m_tos); // Affects only IPv4 sockets.
+            m_socket->Connect(m_peerAddress);
+        }
+        else if (Inet6SocketAddress::IsMatchingType(m_peerAddress))
+        {
+            if (m_socket->Bind6() == -1)
+            {
+                NS_FATAL_ERROR("Failed to bind socket");
+            }
+            m_socket->Connect(m_peerAddress);
         }
         else
         {
-            if (InetSocketAddress::IsMatchingType(m_peer))
-            {
-                if (m_socket->Bind() == -1)
-                {
-                    NS_FATAL_ERROR("Failed to bind socket");
-                }
-            }
-            else if (Inet6SocketAddress::IsMatchingType(m_peer))
-            {
-                if (m_socket->Bind6() == -1)
-                {
-                    NS_FATAL_ERROR("Failed to bind socket");
-                }
-            }
-            else
-            {
-                NS_ASSERT_MSG(false, "Incompatible address type: " << m_peer);
-            }
+            NS_ASSERT_MSG(false, "Incompatible address type: " << m_peerAddress);
         }
-        m_socket->SetIpTos(m_tos); // Affects only IPv4 sockets.
-        m_socket->Connect(m_peer);
-        m_socket->SetRecvCallback(MakeCallback(&UdpEchoClient::HandleRead, this));
-        m_socket->SetAllowBroadcast(true);
     }
 
+    m_socket->SetRecvCallback(MakeCallback(&UdpEchoClient::HandleRead, this));
+    m_socket->SetAllowBroadcast(true);
     ScheduleTransmit(Seconds(0.));
 }
 
@@ -383,21 +350,48 @@ UdpEchoClient::Send()
     // call to the trace sinks before the packet is actually sent,
     // so that tags added to the packet can be sent as well
     m_txTrace(p);
-    m_txTraceWithAddresses(p, localAddress, m_peer);
+    if (Ipv4Address::IsMatchingType(m_peerAddress))
+    {
+        m_txTraceWithAddresses(
+            p,
+            localAddress,
+            InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
+    }
+    else if (Ipv6Address::IsMatchingType(m_peerAddress))
+    {
+        m_txTraceWithAddresses(
+            p,
+            localAddress,
+            Inet6SocketAddress(Ipv6Address::ConvertFrom(m_peerAddress), m_peerPort));
+    }
     m_socket->Send(p);
     ++m_sent;
 
-    if (InetSocketAddress::IsMatchingType(m_peer))
+    if (Ipv4Address::IsMatchingType(m_peerAddress))
     {
         NS_LOG_INFO("At time " << Simulator::Now().As(Time::S) << " client sent " << m_size
-                               << " bytes to " << InetSocketAddress::ConvertFrom(m_peer).GetIpv4()
-                               << " port " << InetSocketAddress::ConvertFrom(m_peer).GetPort());
+                               << " bytes to " << Ipv4Address::ConvertFrom(m_peerAddress)
+                               << " port " << m_peerPort);
     }
-    else if (Inet6SocketAddress::IsMatchingType(m_peer))
+    else if (Ipv6Address::IsMatchingType(m_peerAddress))
     {
         NS_LOG_INFO("At time " << Simulator::Now().As(Time::S) << " client sent " << m_size
-                               << " bytes to " << Inet6SocketAddress::ConvertFrom(m_peer).GetIpv6()
-                               << " port " << Inet6SocketAddress::ConvertFrom(m_peer).GetPort());
+                               << " bytes to " << Ipv6Address::ConvertFrom(m_peerAddress)
+                               << " port " << m_peerPort);
+    }
+    else if (InetSocketAddress::IsMatchingType(m_peerAddress))
+    {
+        NS_LOG_INFO(
+            "At time " << Simulator::Now().As(Time::S) << " client sent " << m_size << " bytes to "
+                       << InetSocketAddress::ConvertFrom(m_peerAddress).GetIpv4() << " port "
+                       << InetSocketAddress::ConvertFrom(m_peerAddress).GetPort());
+    }
+    else if (Inet6SocketAddress::IsMatchingType(m_peerAddress))
+    {
+        NS_LOG_INFO(
+            "At time " << Simulator::Now().As(Time::S) << " client sent " << m_size << " bytes to "
+                       << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetIpv6() << " port "
+                       << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetPort());
     }
 
     if (m_sent < m_count || m_count == 0)
@@ -410,8 +404,10 @@ void
 UdpEchoClient::HandleRead(Ptr<Socket> socket)
 {
     NS_LOG_FUNCTION(this << socket);
+    Ptr<Packet> packet;
     Address from;
-    while (auto packet = socket->RecvFrom(from))
+    Address localAddress;
+    while ((packet = socket->RecvFrom(from)))
     {
         if (InetSocketAddress::IsMatchingType(from))
         {
@@ -427,7 +423,6 @@ UdpEchoClient::HandleRead(Ptr<Socket> socket)
                                    << Inet6SocketAddress::ConvertFrom(from).GetIpv6() << " port "
                                    << Inet6SocketAddress::ConvertFrom(from).GetPort());
         }
-        Address localAddress;
         socket->GetSockName(localAddress);
         m_rxTrace(packet);
         m_rxTraceWithAddresses(packet, from, localAddress);

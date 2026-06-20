@@ -1,7 +1,18 @@
 /*
  * Copyright (c) 2009 INRIA
  *
- * SPDX-License-Identifier: GPL-2.0-only
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
@@ -25,6 +36,8 @@ SeqTsHeader::SeqTsHeader()
       m_ts(Simulator::Now().GetTimeStep())
 {
     NS_LOG_FUNCTION(this);
+    if (IntHeader::mode == 1)
+        ih.ts = Simulator::Now().GetTimeStep();
 }
 
 void
@@ -46,6 +59,18 @@ SeqTsHeader::GetTs() const
 {
     NS_LOG_FUNCTION(this);
     return TimeStep(m_ts);
+}
+
+void
+SeqTsHeader::SetPG (uint16_t pg)
+{
+	m_pg = pg;
+}
+
+uint16_t
+SeqTsHeader::GetPG (void) const
+{
+	return m_pg;
 }
 
 TypeId
@@ -75,7 +100,11 @@ uint32_t
 SeqTsHeader::GetSerializedSize() const
 {
     NS_LOG_FUNCTION(this);
-    return 4 + 8;
+	return GetHeaderSize();
+}
+
+uint32_t SeqTsHeader::GetHeaderSize(void){
+	return 6 + IntHeader::GetStaticSize();
 }
 
 void
@@ -84,7 +113,10 @@ SeqTsHeader::Serialize(Buffer::Iterator start) const
     NS_LOG_FUNCTION(this << &start);
     Buffer::Iterator i = start;
     i.WriteHtonU32(m_seq);
-    i.WriteHtonU64(m_ts);
+    i.WriteHtonU16(m_pg);
+
+    // write IntHeader
+    ih.Serialize(i);
 }
 
 uint32_t
@@ -93,8 +125,11 @@ SeqTsHeader::Deserialize(Buffer::Iterator start)
     NS_LOG_FUNCTION(this << &start);
     Buffer::Iterator i = start;
     m_seq = i.ReadNtohU32();
-    m_ts = i.ReadNtohU64();
-    return GetSerializedSize();
+    m_pg =  i.ReadNtohU16 ();
+
+    // read IntHeader
+    ih.Deserialize(i);
+    return GetSerializedSize ();
 }
 
 } // namespace ns3
