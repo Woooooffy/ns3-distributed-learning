@@ -18,7 +18,6 @@
 * Author: Yuliang Li <yuliangli@g.harvard.com>
 */
 
-#define __STDC_LIMIT_MACROS 1
 #include <stdint.h>
 #include <stdio.h>
 #include "ns3/qbb-net-device.h"

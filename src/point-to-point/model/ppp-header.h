@@ -84,6 +84,12 @@ class PppHeader : public Header
      */
     uint16_t GetProtocol() const;
 
+    /**
+     * @brief Get the serialized size as a static (compile-time-constant) method.
+     * Used by switch-node.cc to compute byte offsets into raw packet buffers.
+     */
+    static uint32_t GetStaticSize() { return 2; }
+
   private:
     /**
      * @brief The PPP protocol type of the payload packet
