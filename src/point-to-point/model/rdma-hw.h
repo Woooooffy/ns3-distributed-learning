@@ -48,6 +48,12 @@ public:
 	typedef Callback<void, Ptr<RdmaQueuePair> > QpCompleteCallback;
 	QpCompleteCallback m_qpCompleteCallback;
 
+	// Per-packet data receive callback: (sip, dip, sport, dport, pg, payload_bytes)
+	// Fired for every incoming RDMA UDP data packet before ACK generation.
+	typedef Callback<void, uint32_t, uint32_t, uint16_t, uint16_t, uint16_t, uint32_t> RdmaDataRecvCb;
+	RdmaDataRecvCb m_dataRecvCb;
+	void SetDataRecvCallback(RdmaDataRecvCb cb) { m_dataRecvCb = cb; }
+
 	void SetNode(Ptr<Node> node);
 	void Setup(QpCompleteCallback cb); // setup shared data and callbacks with the QbbNetDevice
 	static uint64_t GetQpKey(uint32_t dip, uint16_t sport, uint16_t pg); // get the lookup key for m_qpMap

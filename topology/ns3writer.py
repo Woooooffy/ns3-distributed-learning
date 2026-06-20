@@ -56,6 +56,10 @@ class NS3Writer:
 		self.emit('#include "ns3/csma-module.h"')
 		self.emit('#include "ns3/ethernet-switch-module.h"')
 		self.emit('#include "ns3/distributed-training-module.h"')
+		self.emit('#include "ns3/qbb-helper.h"')
+		self.emit('#include "ns3/qbb-net-device.h"')
+		self.emit('#include "ns3/rdma-hw.h"')
+		self.emit('#include "ns3/rdma-driver.h"')
 		self.emit("")
 		self.emit("using namespace ns3;")
 		self.emit("")
@@ -129,6 +133,8 @@ class NS3Writer:
 				helper_name = "SwitchedEthernet"
 			case "p2p":
 				helper_name = "PointToPoint"
+			case "qbb":
+				helper_name = "Qbb"
 			case "default":
 				helper_name = "Csma"
 			case _:
@@ -137,9 +143,8 @@ class NS3Writer:
 		self.emit(f"{helper_name}Helper link_helper{hid};")
 		self.emit(f"link_helper{hid}.SetDeviceAttribute(\"Mtu\", UintegerValue({insn.mtu}));")
 		self.emit(f'link_helper{hid}.SetChannelAttribute("Delay", StringValue("{delay_val}{delay_unit}"));')
-		if insn.type == "p2p":
-			# PointToPointNetDevice (unlike Csma/SwitchedEthernet) exposes DataRate
-			# as a device attribute, not a channel attribute
+		if insn.type in ("p2p", "qbb"):
+			# PointToPoint and Qbb expose DataRate as a device attribute
 			self.emit(f'link_helper{hid}.SetDeviceAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
 		else:
 			self.emit(f'link_helper{hid}.SetChannelAttribute("DataRate", StringValue("{bw_val}{bw_unit}"));')
@@ -428,12 +433,13 @@ class NS3Writer:
 
 	def _emit_regswitch_setup(self):
 		"""
-		After all links are installed:
-		1. InternetStack on GPU and reg-switch nodes.
-		2. Assign IP 10.0.0.(i+1)/8 to each GPU's switch-facing P2P interface.
+		After all QBB links are installed:
+		1. InternetStack on GPU nodes only (switches have no Ipv4 layer).
+		2. Assign IP 10.0.0.(i+1)/8 to each GPU's switch-facing QBB interface.
 		3. BFS-computed ECMP routing table entries for each SwitchNode.
-		4. Static default routes on GPU nodes pointing at the switch fabric.
-		5. PushSendPeerDevice + PushPeerIpAddr for switch-reachable GPU pairs.
+		4. RdmaHw + RdmaDriver per GPU: Init, AddTableEntry, SetDataRecvCallback.
+		5. GPU::SetMyIp and GPU::SetRdmaDriver.
+		6. PushSendPeerDevice + PushPeerIpAddr for switch-reachable GPU pairs.
 		"""
 
 		# Nothing to do if no reg-switch links were installed
@@ -441,25 +447,24 @@ class NS3Writer:
 			return
 
 		self.emit("")
-		self.emit("// ---- RegSwitch (SwitchNode / ECMP) setup ----")
+		self.emit("// ---- RegSwitch (SwitchNode / QBB / RDMA) setup ----")
 		self.emit("")
 
-		# 1. InternetStack
+		# 1. InternetStack on GPU nodes only.
+		#    Switches use SwitchNode routing tables, not Ipv4.
 		self.emit("InternetStackHelper internetStack;")
 		self.emit("internetStack.Install(gpunodes);")
-		self.emit("internetStack.Install(regswtches);")
 		self.emit("")
 
 		# 2. Assign IP to GPU switch-facing interfaces.
-		#    Each GPU may have at most one switch-facing P2P device per the typical topology.
-		#    Track which GPUs have a switch-facing device.
+		#    Each GPU may have multiple switch-facing devices (multipath), but we assign
+		#    a single host IP per GPU based on its index.
 		gpu_sw_dev: dict[str, str] = {}  # gpu_name → container.Get(0) expression
 		for (gpu_name, sw_name), cvar in self.gpu_to_sw_links.items():
 			gpu_sw_dev[gpu_name] = f"{cvar}.Get(0)"
 
 		for gpu_name, dev_expr in gpu_sw_dev.items():
 			gpu_idx = self.gpus[gpu_name]
-			ip_str = f"10.0.0.{gpu_idx + 1}"
 			self.emit("{")
 			self.indent += 1
 			self.emit(f"Ipv4AddressHelper _ipv4;")
@@ -483,16 +488,13 @@ class NS3Writer:
 			adj.setdefault(sw_b, []).append((sw_a, cvar, 1))
 
 		# BFS from each destination GPU; for each reg switch reached, emit AddTableEntry
-		self.emit("// SwitchNode routing tables")
+		self.emit("// SwitchNode routing tables (BFS ECMP)")
 		for dst_gpu, dst_idx in self.gpus.items():
 			dst_ip = f"10.0.0.{dst_idx + 1}"
 			if dst_gpu not in adj:
 				continue  # GPU has no switch connections
 
-			# BFS: track distance and ECMP parent links
 			dist: dict[str, int] = {dst_gpu: 0}
-			# parent_links[node] = list of (parent, cvar, my_side_toward_parent)
-			# where "toward_parent" means toward dst_gpu direction
 			parent_links: dict[str, list] = {dst_gpu: []}
 			queue = deque([dst_gpu])
 
@@ -505,10 +507,8 @@ class NS3Writer:
 						parent_links[neighbor] = [(node, cvar, neighbor_side)]
 						queue.append(neighbor)
 					elif dist[neighbor] == dist[node] + 1:
-						# Equal-cost path: add for ECMP
 						parent_links[neighbor].append((node, cvar, neighbor_side))
 
-			# Emit AddTableEntry for each reg switch
 			for sw_name in self.reg_switches:
 				if sw_name not in parent_links:
 					continue
@@ -525,33 +525,63 @@ class NS3Writer:
 					self.emit("}")
 		self.emit("")
 
-		# 4. GPU static routes toward the switch fabric
-		self.emit("// GPU static routes to switch fabric")
-		for gpu_name, dev_expr in gpu_sw_dev.items():
-			gpu_idx = self.gpus[gpu_name]
+		# 4. RdmaHw + RdmaDriver per GPU.
+		#    One RdmaHw per GPU; Init() walks m_node->GetNDevices() to find QbbNetDevices.
+		#    AddTableEntry maps each peer GPU's IP to the GPU's QBB device index.
+		sw_connected_gpus = set(gpu_sw_dev.keys())
+		self.emit("// RdmaHw + RdmaDriver setup per GPU")
+		for gpu_name in sorted(sw_connected_gpus, key=lambda n: self.gpus[n]):
+			gpu_idx  = self.gpus[gpu_name]
+			gpu_ip   = f"10.0.0.{gpu_idx + 1}"
+			src_dev  = gpu_sw_dev[gpu_name]
+			var_hw   = f"rdmaHw_gpu{gpu_idx}"
+			var_drv  = f"rdmaDriver_gpu{gpu_idx}"
 			self.emit("{")
 			self.indent += 1
-			self.emit("Ipv4StaticRoutingHelper _srh;")
+			self.emit(f"Ptr<RdmaHw> {var_hw} = CreateObject<RdmaHw>();")
+			self.emit(f'{var_hw}->SetAttribute("CcMode", UintegerValue(3));')
+			self.emit(f"Ptr<RdmaDriver> {var_drv} = CreateObject<RdmaDriver>();")
+			self.emit(f"{var_drv}->SetNode(gpunodes.Get({gpu_idx}));")
+			self.emit(f"{var_drv}->SetRdmaHw({var_hw});")
+			self.emit(f"{var_drv}->Init();")
+			self.emit("")
+			# Routing: this GPU can reach every other switch-connected GPU via its QBB dev
+			for dst_gpu in sw_connected_gpus:
+				if dst_gpu == gpu_name:
+					continue
+				dst_idx = self.gpus[dst_gpu]
+				dst_ip  = f"10.0.0.{dst_idx + 1}"
+				self.emit("{")
+				self.indent += 1
+				self.emit(f'Ipv4Address _peerIp("{dst_ip}");')
+				self.emit(
+					f"{var_hw}->AddTableEntry(_peerIp, "
+					f"DynamicCast<QbbNetDevice>({src_dev})->GetIfIndex());"
+				)
+				self.indent -= 1
+				self.emit("}")
+			self.emit("")
+			# Data receive callback → GPU::OnRdmaDataRecv
 			self.emit(
-				f"Ptr<Ipv4StaticRouting> _sr = "
-				f"_srh.GetStaticRouting(gpunodes.Get({gpu_idx})->GetObject<Ipv4>());"
+				f"{var_hw}->SetDataRecvCallback(MakeCallback(&GPU::OnRdmaDataRecv, "
+				f"DynamicCast<GPU>(gpunodes.Get({gpu_idx}))));"
+			)
+			self.emit("")
+			# Store IP and driver on the GPU node object
+			self.emit(
+				f'DynamicCast<GPU>(gpunodes.Get({gpu_idx}))->SetMyIp(Ipv4Address("{gpu_ip}"));'
 			)
 			self.emit(
-				f"int32_t _ifIdx = gpunodes.Get({gpu_idx})->GetObject<Ipv4>()"
-				f"->GetInterfaceForDevice({dev_expr});"
-			)
-			self.emit(
-				f'_sr->AddNetworkRouteTo(Ipv4Address("10.0.0.0"), Ipv4Mask("255.0.0.0"), _ifIdx);'
+				f"DynamicCast<GPU>(gpunodes.Get({gpu_idx}))->SetRdmaDriver({var_drv});"
 			)
 			self.indent -= 1
 			self.emit("}")
 		self.emit("")
 
-		# 5. PushSendPeerDevice + PushPeerIpAddr for switch-reachable GPU pairs
-		# A GPU pair is switch-reachable if both GPUs have switch-facing devices
-		# AND they don't have a direct P2P link.
+		# 5. PushSendPeerDevice + PushPeerIpAddr for switch-reachable GPU pairs.
+		#    PushSendPeerDevice tells the pacing logic which device to use.
+		#    PushPeerIpAddr is the signal that CollectivesApplication uses the RDMA path.
 		self.emit("// PushSendPeerDevice and PushPeerIpAddr for switch-fabric pairs")
-		sw_connected_gpus = set(gpu_sw_dev.keys())
 		for src_gpu in sw_connected_gpus:
 			src_idx = self.gpus[src_gpu]
 			src_dev = gpu_sw_dev[src_gpu]
@@ -559,15 +589,13 @@ class NS3Writer:
 				if src_gpu == dst_gpu:
 					continue
 				if frozenset({src_gpu, dst_gpu}) in self.gpu_direct_pairs:
-					continue  # Direct link exists; don't override with UDP path
+					continue  # Direct link exists; not an RDMA pair
 				dst_idx = self.gpus[dst_gpu]
 				dst_ip  = f"10.0.0.{dst_idx + 1}"
-				# Register the switch-facing device as the send device for pacing
 				self.emit(
 					f"DynamicCast<GPU>(gpunodes.Get({src_idx}))"
 					f"->PushSendPeerDevice({dst_idx}, {src_dev});"
 				)
-				# Register the peer's IP so collectives uses the UDP path
 				self.emit(
 					f"DynamicCast<GPU>(gpunodes.Get({src_idx}))"
 					f'->PushPeerIpAddr({dst_idx}, Ipv4Address("{dst_ip}"));'

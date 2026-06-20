@@ -155,9 +155,13 @@ class NS3CodeGenerator():
 			src = pre + "_" + src
 			dst = pre + "_" + dst
 		# assumes nodes declared before building link
-		# NVSwitch links stay Ethernet; reg-switch and GPU-GPU links use P2P
+		# NVSwitch links stay Ethernet.
+		# GPU-switch and switch-switch links use QBB for full RDMA/PFC modelling.
+		# GPU-GPU direct links stay P2P.
 		if src in self.nvswitches or dst in self.nvswitches:
 			type = "eth"
+		elif src in self.reg_switches or dst in self.reg_switches:
+			type = "qbb"
 		else:
 			type = "p2p"
 		mtu = insn.attrs["mtu"] if "mtu" in insn.attrs else 9000

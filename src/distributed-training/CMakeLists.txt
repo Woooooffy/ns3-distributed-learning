@@ -48,7 +48,7 @@ build_lib(
 								 model/collective-tests.h
 								 model/switch.h
 								 helper/switch-helper.h
-    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${EXTRA_LIBS}
+    LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libbridge} ${libpoint-to-point} ${EXTRA_LIBS}
     TEST_SOURCES test/distributed-training-test-suite.cc
                  ${examples_as_tests_sources}
 )

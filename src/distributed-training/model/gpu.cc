@@ -1,4 +1,5 @@
 #include "gpu.h"
+#include "collectives.h"
 
 namespace ns3
 {
@@ -66,6 +67,22 @@ namespace ns3
 			}
 		}
 		return -1;
+	}
+
+	void GPU::SetMyIp(Ipv4Address ip) { m_myIp = ip; }
+	Ipv4Address GPU::GetMyIp() const { return m_myIp; }
+
+	void GPU::SetRdmaDriver(Ptr<RdmaDriver> drv) { m_rdmaDriver = drv; }
+	Ptr<RdmaDriver> GPU::GetRdmaDriver() const { return m_rdmaDriver; }
+
+	void GPU::OnRdmaDataRecv(uint32_t sip, uint32_t dip, uint16_t sport, uint16_t dport, uint16_t pg, uint32_t bytes) {
+		for (uint32_t i = 0; i < GetNApplications(); i++) {
+			Ptr<CollectivesApplication> app = DynamicCast<CollectivesApplication>(GetApplication(i));
+			if (app) {
+				app->OnRdmaData(sip, sport, dport, bytes);
+				return;
+			}
+		}
 	}
 
 }

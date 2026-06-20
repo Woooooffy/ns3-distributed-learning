@@ -5,6 +5,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/rdma-driver.h"
 #include "gpu.h"
 #include "msccl.h"
 #include "utils.h"
@@ -88,11 +89,11 @@ namespace ns3 {
 			~MscclChannel();
 			void ConnectSendPeer(int peerId);
 			void SetupRecvPeer(int peerId);
-			//void SetupListener();
-			//void OnNewConnection(Ptr<Socket> newSock, const Address& from);
-			//bool CanAcceptConnection(Ptr<Socket> sock, const Address& from);
 			void SendCallback(Ptr<Socket> sock, uint32_t bytes);
 			void RecvCallback(Ptr<Socket> sock);
+			// Called by CollectivesApplication when an RDMA data packet arrives.
+			// sport/dport encode (channel+dstbuf) / dstoff respectively.
+			void OnRdmaData(uint32_t sip, uint16_t dstbuf, int16_t dstoff, uint32_t bytes);
 
 			inline void SetPendingRecv(uint16_t dstBuf, int16_t dstOff, PendingTransfer recv);
 			inline void PushPendingSend(Ptr<Socket> sendpeer, PendingTransfer send);
@@ -109,14 +110,22 @@ namespace ns3 {
 
 			void Close();
 		private:
+			// State for RDMA (QBB) send peers — replaces the old UDP socket path.
+			struct RdmaQpCtx {
+				Ptr<RdmaDriver> driver;
+				Ipv4Address myIp;
+				Ipv4Address peerIp;
+				uint16_t pg = 3; // priority group for QPs on this channel
+			};
+
 			int8_t m_id;
 			DataType::Type m_dataType;
 			TypeId m_socketType;
 			Ptr<CollectivesApplication> m_app;
 			Ptr<Socket> m_listenSocket;
-			std::map<int16_t, Ptr<Socket>> m_sendPeerSockets;
+			std::map<int16_t, Ptr<Socket>> m_sendPeerSockets;  // socket-path peers
 			std::map<Ptr<Socket>, int16_t> m_recvSocketPeers;
-			std::unordered_set<int16_t> m_udpSendPeers; // peers reached via UDP/IP (switch path)
+			std::map<int16_t, RdmaQpCtx> m_rdmaSendPeers;     // RDMA-path peers
 			// std::map<int16_t, std::queue<PendingTransfer>> m_pendingRecvs;
 			std::map<std::pair<uint16_t, uint16_t>, PendingTransfer> m_pendingRecvByBufferRegion;
 			std::map<std::pair<uint16_t, uint16_t>, bool> m_recvReadyByBufferRegion;
@@ -142,6 +151,9 @@ namespace ns3 {
 			Ipv4Address GetPeerIpAddr(int16_t peerId, int id);
 			Ptr<NetDevice> GetSendDevicePeer(int16_t peerId, int id);
 			Ptr<NetDevice> GetRecvDevicePeer(int16_t peerId, int id);
+			// Dispatches an RDMA receive notification to the correct MscclChannel.
+			// sport encodes (channel_id << 8 | dstbuf); dport encodes dstoff.
+			void OnRdmaData(uint32_t sip, uint16_t sport, uint16_t dport, uint32_t bytes);
 			int GetPort();
 			DataType::Type GetDataType();
 		  TypeId GetSocketTypeId();

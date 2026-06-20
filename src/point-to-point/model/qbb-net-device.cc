@@ -419,7 +419,10 @@ namespace ns3 {
 		p->AddHeader(pauseh);
 		Ipv4Header ipv4h;  // Prepare IPv4 header
 		ipv4h.SetProtocol(0xFE);
-		ipv4h.SetSource(m_node->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
+		{
+			Ptr<Ipv4> ipv4 = m_node->GetObject<Ipv4>();
+			ipv4h.SetSource(ipv4 ? ipv4->GetAddress(m_ifIndex, 0).GetLocal() : Ipv4Address("0.0.0.0"));
+		}
 		ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
 		ipv4h.SetPayloadSize(p->GetSize());
 		ipv4h.SetTtl(1);
@@ -444,8 +447,10 @@ namespace ns3 {
 	Ipv4Header ipv4h;  // Prepare IPv4 header
 	ipv4h.SetProtocol(0xFE);
 	//ipv4h.SetProtocol(L3ProtType::kPFC);
-	ipv4h.SetSource(
-		m_node->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
+	{
+		Ptr<Ipv4> ipv4 = m_node->GetObject<Ipv4>();
+		ipv4h.SetSource(ipv4 ? ipv4->GetAddress(m_ifIndex, 0).GetLocal() : Ipv4Address("0.0.0.0"));
+	}
 	ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
 	ipv4h.SetPayloadSize(p->GetSize());
 	ipv4h.SetTtl(1);

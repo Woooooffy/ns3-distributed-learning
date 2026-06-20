@@ -352,6 +352,10 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 
 	int x = ReceiverCheckSeq(ch.udp.seq, rxQp, payload_size);
 
+	// Notify application layer of incoming data bytes (sport/dport carry transfer identity).
+	if (!m_dataRecvCb.IsNull())
+		m_dataRecvCb(ch.sip, ch.dip, ch.udp.sport, ch.udp.dport, ch.udp.pg, payload_size);
+
 	if(x !=1 && x!=2){
 		std::cout << Simulator::Now().GetNanoSeconds() << " Rx ";
 		Ipv4Address(ch.sip).Print(std::cout);

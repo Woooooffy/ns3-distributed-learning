@@ -1,12 +1,18 @@
 #include "collectives.h"
 
 #define MSCCL_MAX_ITER 65536
-// L2 overhead (e.g. PPP/eth header) added by the NetDevice on top of our packet,
-// reserved when sizing fragments and used to keep fragment pacing from
-// outrunning the device's actual transmission time
+// L2 overhead (e.g. PPP/eth header) added by the NetDevice on top of our packet.
 #define MSCCL_L2_OVERHEAD_BYTES 14
-// IP (20) + UDP (8) added by the network stack for switch-path peers
-#define MSCCL_UDP_OVERHEAD_BYTES 28
+
+// RDMA QP defaults
+#define RDMA_DEFAULT_PG       3          // priority group for data QPs
+#define RDMA_DEFAULT_WIN      (20u*1024u*1024u) // 20 MB window
+#define RDMA_DEFAULT_BASE_RTT 100000ULL  // 100 µs in nanoseconds
+
+// Helper: called by RdmaHw when sender's QP has been fully ACKed.
+static void OnRdmaQpFinished(Ptr<CollectivesApplication> app, int8_t bid, int16_t sid) {
+	Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, app, bid, sid);
+}
 
 // flags are a 3-tuple of (workindex, gridoffset_iter, step) and it follows a lexicographical order. a threadblock is ahead of another iff its flag is ahead
 #define COMPUTE_FLAG(__WORKINDEX__,__GRIDOFFSET_ITER__,__STEP__) \
@@ -59,16 +65,21 @@ namespace ns3 {
 
 	void MscclChannel::ConnectSendPeer(int peerId){
 		Ipv4Address peerIp = m_app->GetPeerIpAddr(peerId, m_id);
-		bool useUdp = (peerIp != Ipv4Address());
+		bool useRdma = (peerIp != Ipv4Address());
 
-		if (useUdp) {
-			Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), UdpSocketFactory::GetTypeId());
-			InetSocketAddress remote(peerIp, MSCCL_UDP_BASE_PORT + m_id);
-			sock->Connect(remote);
-			sock->SetDataSentCallback(MakeCallback(&MscclChannel::SendCallback, this));
-			m_sendPeerSockets[peerId] = sock;
-			m_udpSendPeers.insert(peerId);
+		if (useRdma) {
+			// RDMA path: store context for lazy QP creation at Send() time.
+			Ptr<GPU> gpu = DynamicCast<GPU>(m_app->GetNode());
+			NS_ASSERT_MSG(gpu, "RDMA path requires a GPU node");
+			NS_ASSERT_MSG(gpu->GetRdmaDriver(), "GPU has no RdmaDriver; call SetRdmaDriver() in topology setup");
+			RdmaQpCtx ctx;
+			ctx.driver  = gpu->GetRdmaDriver();
+			ctx.myIp    = gpu->GetMyIp();
+			ctx.peerIp  = peerIp;
+			ctx.pg      = RDMA_DEFAULT_PG;
+			m_rdmaSendPeers[peerId] = ctx;
 		} else {
+			// L2 PacketSocket path (GPU-GPU direct or GPU-NVSwitch).
 			Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 			PacketSocketAddress addr;
 			addr.SetSingleDevice(m_app->GetSendDevicePeer(peerId, m_id)->GetIfIndex());
@@ -83,18 +94,14 @@ namespace ns3 {
 
 	void MscclChannel::SetupRecvPeer(int peerId) {
 		Ipv4Address peerIp = m_app->GetPeerIpAddr(peerId, m_id);
-		bool useUdp = (peerIp != Ipv4Address());
+		bool useRdma = (peerIp != Ipv4Address());
 
-		if (useUdp) {
-			// All UDP peers on this channel share one listen socket bound to the channel port.
-			if (!m_listenSocket) {
-				m_listenSocket = Socket::CreateSocket(m_app->GetNode(), UdpSocketFactory::GetTypeId());
-				InetSocketAddress local(Ipv4Address::GetAny(), MSCCL_UDP_BASE_PORT + m_id);
-				m_listenSocket->Bind(local);
-				m_listenSocket->SetRecvCallback(MakeCallback(&MscclChannel::RecvCallback, this));
-			}
-			// Peer ID is inferred from MscclHeader::GetSrcGpu() in RecvCallback.
+		if (useRdma) {
+			// RDMA path: receive notifications arrive via GPU::OnRdmaDataRecv →
+			// CollectivesApplication::OnRdmaData → MscclChannel::OnRdmaData.
+			// No socket setup needed.
 		} else {
+			// L2 PacketSocket path.
 			Ptr<Socket> sock = Socket::CreateSocket(m_app->GetNode(), m_socketType);
 			PacketSocketAddress addr;
 			addr.SetSingleDevice(m_app->GetRecvDevicePeer(peerId, m_id)->GetIfIndex());
@@ -286,13 +293,36 @@ namespace ns3 {
 	}
 
 	void MscclChannel::Send(int8_t bid, int16_t sid, int16_t sendpeer, uint32_t nElems, uint16_t srcbuf, int16_t srcoff, uint16_t dstbuf, int16_t dstoff){
-		if (sendpeer < 0){
-			NS_FATAL_ERROR("Send peer is negative in Send");
-		}
-		if (dstoff < 0){
-			NS_FATAL_ERROR("Invalid dst offset in Send");
-		}
+		if (sendpeer < 0) NS_FATAL_ERROR("Send peer is negative in Send");
+		if (dstoff < 0)   NS_FATAL_ERROR("Invalid dst offset in Send");
+
 		uint32_t totalBytes = nElems * DataType::GetSizeBytes(m_dataType);
+
+		// ---- RDMA path (QBB / SwitchNode fabric) ----
+		if (m_rdmaSendPeers.count(sendpeer)) {
+			RdmaQpCtx& ctx = m_rdmaSendPeers.at(sendpeer);
+			// sport encodes (channel_id | dstbuf) so the receiver can demultiplex.
+			// dport encodes dstoff so the receiver can locate the buffer region.
+			uint16_t sport = static_cast<uint16_t>((static_cast<uint8_t>(m_id) << 8) | (dstbuf & 0xFF));
+			uint16_t dport = static_cast<uint16_t>(dstoff);
+			uint32_t  win  = totalBytes + RDMA_DEFAULT_WIN;
+			ctx.driver->AddQueuePair(
+				static_cast<uint32_t>(m_app->GetNode()->GetId()),
+				static_cast<uint32_t>(sendpeer),
+				0 /*tag*/,
+				static_cast<uint64_t>(totalBytes),
+				ctx.pg,
+				ctx.myIp, ctx.peerIp,
+				sport, dport,
+				win,
+				RDMA_DEFAULT_BASE_RTT,
+				MakeBoundCallback(&OnRdmaQpFinished, m_app, bid, sid),
+				MakeNullCallback<void>()
+			);
+			return;
+		}
+
+		// ---- L2 PacketSocket path (GPU-GPU / GPU-NVSwitch) ----
 		Ptr<Socket> sock = m_sendPeerSockets.at(sendpeer);
 		int flowId = 0;
 		#ifdef FLOW_ID_TEST
@@ -303,11 +333,9 @@ namespace ns3 {
 		uint32_t mtu = dev->GetMtu();
 		MscclHeader templateHdr(m_app->GetNode()->GetId(), static_cast<uint16_t>(sendpeer), static_cast<uint16_t>(m_id), dstbuf, static_cast<uint16_t>(dstoff), totalBytes, flowId);
 		uint32_t headerSize = templateHdr.GetSerializedSize();
-		uint32_t overhead = m_udpSendPeers.count(sendpeer) ? MSCCL_UDP_OVERHEAD_BYTES : MSCCL_L2_OVERHEAD_BYTES;
+		uint32_t overhead   = MSCCL_L2_OVERHEAD_BYTES;
 		uint32_t maxPayload = mtu - headerSize - overhead;
-		// round down to a multiple of the element size so fragment boundaries
-		// never split an element; otherwise ReduceAdd misaligns across fragments
-		uint32_t elemSize = DataType::GetSizeBytes(m_dataType);
+		uint32_t elemSize   = DataType::GetSizeBytes(m_dataType);
 		maxPayload -= maxPayload % elemSize;
 
 		const uint8_t* srcData = m_app->GetCorrectnessCheck()
@@ -331,8 +359,6 @@ namespace ns3 {
 
 		PendingTransfer send(bid, sid, totalWireBytes, MSCCL_SEND, srcbuf, srcoff, dstbuf, dstoff);
 		m_pendingSends[sock].push(send);
-
-		// pacing happens per physical device, since multiple channels may share one
 		m_app->QueueFragmentsForDevice(dev, std::move(frags));
 	}
 
@@ -375,20 +401,48 @@ namespace ns3 {
 	NS_FATAL_ERROR("RecvRedCpSend not yet implemented");
 	}
 
+	void MscclChannel::OnRdmaData(uint32_t /*sip*/, uint16_t dstbuf, int16_t dstoff, uint32_t bytes){
+		auto dstInfo = std::make_pair(dstbuf, static_cast<uint16_t>(dstoff));
+
+		m_recvBytesAccum[dstInfo] += bytes;
+
+		bool pending = m_pendingRecvByBufferRegion.contains(dstInfo);
+		uint32_t expected = pending ? m_pendingRecvByBufferRegion[dstInfo].pendingBytes : 0;
+
+		if (pending && m_recvBytesAccum[dstInfo] < expected) {
+			// still waiting for more bytes
+			return;
+		}
+
+		if (pending && m_recvBytesAccum[dstInfo] > expected) {
+			NS_FATAL_ERROR("Node " << m_app->GetNode()->GetId()
+				<< " RDMA accum overshot for (" << dstbuf << "," << dstoff
+				<< "): got " << m_recvBytesAccum[dstInfo] << " expected " << expected);
+		}
+
+		m_recvBytesAccum.erase(dstInfo);
+
+		if (pending) {
+			auto& cur = m_pendingRecvByBufferRegion[dstInfo];
+			int8_t  b = cur.bid;
+			int16_t s = cur.sid;
+			m_pendingRecvByBufferRegion.erase(dstInfo);
+			m_recvReadyByBufferRegion.erase(dstInfo);
+			Simulator::ScheduleNow(&CollectivesApplication::StepCompletionCallback, m_app, b, s);
+		} else {
+			// Recv() hasn't been called yet; mark data ready so Recv() fast-paths
+			m_recvReadyByBufferRegion[dstInfo] = true;
+		}
+	}
+
 	void MscclChannel::Close(){
-		// check for unfinished sends
+		// check for unfinished sends (L2 socket path only; RDMA fires completion before Close)
 		for (auto& sendQueue : m_pendingSends){
 			if (!sendQueue.second.empty()){
 				NS_FATAL_ERROR("BUG: has pending send on node " << m_app->GetNode()->GetId() << " channel " << m_id << " at application close.");
 			}
 		}
-		// unfinished recvs
-		/*for (auto& recvQueue : m_pendingRecvs){
-			if (!recvQueue.second.empty()){
-				NS_FATAL_ERROR("BUG: has pending recv on node " << m_app->GetNode()->GetId() << " channel " << m_id << " at application close.");
-			}
-		}*/
-		// socket close
+		// socket close (L2 path only; RDMA peers have no sockets)
 		if (m_listenSocket) m_listenSocket->Close();
 		for (auto& pair: m_sendPeerSockets){
 			pair.second->Close();
@@ -396,6 +450,22 @@ namespace ns3 {
 		for (auto& pair: m_recvSocketPeers){
 			pair.first->Close();
 		}
+	}
+
+	void CollectivesApplication::OnRdmaData(uint32_t sip, uint16_t sport, uint16_t dport, uint32_t bytes){
+		// sport = (channel_id << 8) | dstbuf
+		// dport = dstoff
+		uint8_t  channel_id = static_cast<uint8_t>(sport >> 8);
+		uint16_t dstbuf     = sport & 0xFF;
+		int16_t  dstoff     = static_cast<int16_t>(dport);
+
+		auto it = m_channels.find(channel_id);
+		if (it == m_channels.end()) {
+			NS_LOG_WARN("Node " << GetNode()->GetId()
+				<< " OnRdmaData: unknown channel_id=" << (int)channel_id);
+			return;
+		}
+		it->second.OnRdmaData(sip, dstbuf, dstoff, bytes);
 	}
 
 	//////////////////////////////////////////////
